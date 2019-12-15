@@ -1,0 +1,1 @@
+-define(APP, blockchain_etl).

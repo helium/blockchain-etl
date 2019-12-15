@@ -1,0 +1,29 @@
+%% -*- erlang -*-
+{application, blockchain_etl,
+ [
+   {description, "A Helium blockchain ETL"},
+   {vsn, "0.1.0"},
+   {registered, []},
+   {mod, {blockchain_etl_app, []}},
+   {
+    applications,
+    [
+     kernel,
+     stdlib,
+     syntax_tools,
+     compiler,
+     lager,
+     pgapp,
+     observer_cli,
+     psql_migration,
+     envloader,
+     clique
+    ]
+   },
+   {included_applications, [blockchain]},
+   {env, []},
+   {modules, []},
+   {licenses, ["Apache 2.0"]},
+   {links, []}
+ ]
+}.
