@@ -1,29 +1,28 @@
 -- :up
 
 CREATE TABLE blocks (
-       block_height BIGINT NOT NULL,
+       height BIGINT NOT NULL,
 
-       prev_hash BYTEA,
+       prev_hash TEXT,
        time BIGINT NOT NULL,
        hbbft_round BIGINT NOT NULL,
        election_epoch BIGINT NOT NULL,
        epoch_start BIGINT NOT NULL,
-       rescue_signature BYTEA NOT NULL,
+       rescue_signature TEXT NOT NULL,
 
-       PRIMARY KEY(block_height)
+       PRIMARY KEY(height)
 );
 
 CREATE TABLE block_signatures (
-       block_height BIGINT NOT NULL,
+       block BIGINT NOT NULL references blocks on delete cascade,
        signer TEXT NOT NULL,
-       signature BYTEA NOT NULL,
+       signature TEXT NOT NULL,
 
-       PRIMARY KEY(block_height)
+       PRIMARY KEY(block, signer)
 );
 
 -- Types are created outside of a transaction. Drop it in case it
 -- already exists :-/
-DROP TYPE transaction_type;
 CREATE TYPE transaction_type as ENUM (
         'coinbase_v1',
         'security_coinbase_v1',
@@ -47,23 +46,37 @@ CREATE TYPE transaction_type as ENUM (
 );
 
 CREATE TABLE transactions (
-       block_height BIGINT NOT NULL,
-       hash BYTEA NOT NULL,
+       block BIGINT NOT NULL references blocks on delete cascade,
+       hash TEXT NOT NULL,
        type transaction_type NOT NULL,
        fields jsonb NOT NULL,
 
-       PRIMARY KEY (block_height, hash)
+       PRIMARY KEY (hash)
 );
+
+CREATE TYPE transaction_actor_role as ENUM (
+       'payee',
+       'payer',
+       'owner',
+       'gateway',
+       'challenger',
+       'challengee',
+       'witness',
+       'consensus_member',
+       'escrow'
+);
+
 
 CREATE TABLE transaction_actors (
        actor TEXT NOT NULL,
-       transaction_hash BYTEA NOT NULL,
+       actor_role transaction_actor_role NOT NULL,
+       transaction_hash TEXT references transactions on delete cascade,
 
-       PRIMARY KEY (actor)
+       PRIMARY KEY (actor, actor_role, transaction_hash)
 );
 
 
 -- :down
 
 DROP TABLE blocks, block_signatures, transactions, transaction_actors;
-DROP TYPE transaction_type;
+DROP TYPE transaction_type, transaction_actor_role;
