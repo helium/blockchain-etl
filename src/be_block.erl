@@ -60,13 +60,25 @@ current_height(#state{conn=Conn, s_current_height=Stmt}) ->
     end.
 
 load(Block, State=#state{conn=Conn}) ->
+    Start = erlang:monotonic_time(),
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Block, [], State),
     ActorQueries = q_insert_transaction_actors(Block, [], State),
-    epgsql:with_transaction(Conn, fun(_) ->
-                                          run_queries(BlockQueries, State),
-                                          run_queries(ActorQueries, State)
-                                  end).
+    Result = epgsql:with_transaction(Conn, fun(_) ->
+                                                   run_queries(BlockQueries, State),
+                                                   run_queries(ActorQueries, State)
+                                           end),
+    Latency = erlang:monotonic_time() - Start,
+    telemetry:execute([be_block, insert],
+                      #{
+                        latency => Latency,
+                        transaction_count => length(blockchain_block_v1:transactions(Block)),
+                        actor_count => length(ActorQueries)
+                       },
+                      #{
+                        block => blockchain_block_v1:height(Block)
+                       }),
+    Result.
 
 run_queries(Queries, #state{conn=Conn}) ->
     Results = epgsql:execute_batch(Conn, Queries),

@@ -16,6 +16,7 @@
      epgsql,
      jsone,
      observer_cli,
+     telemetry,
      psql_migration,
      envloader,
      clique
