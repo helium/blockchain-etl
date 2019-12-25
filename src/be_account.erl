@@ -102,9 +102,13 @@ update_balance(Ledger, Keys, Accounts) ->
 %% Helper to map a function over an account map with given ledger entries
 update_accounts(Keys, Accounts, Entries, Fun) ->
     lists:foldl(fun(Key, Acc) ->
-                        Entry = maps:get(Key, Entries),
-                        Account = maps:get(Key, Acc, #account{address=Key}),
-                        NewAccount = Fun(Account, Entry),
-                        Acc#{Key => NewAccount}
+                        case maps:get(Key, Entries, false) of
+                            false ->
+                                Acc;
+                            Entry ->
+                                Account = maps:get(Key, Acc, #account{address=Key}),
+                                NewAccount = Fun(Account, Entry),
+                                Acc#{Key => NewAccount}
+                        end
                 end,
                 Accounts, Keys).
