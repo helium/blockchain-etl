@@ -40,7 +40,7 @@ resume() ->
     gen_server:call(?SERVER, resume).
 
 counts() ->
-    {ok, Conn} = psql_migration:open_connection(),
+    {ok, Conn} = psql_migration:open_connection([]),
     Stats = #{
               block_count => row_count("blocks", Conn),
               transaction_count => row_count("transactions", Conn),
@@ -140,7 +140,7 @@ row_count(TableName, Conn) ->
 connect_database([]) ->
     {undefined, []};
 connect_database(HandlerModules) ->
-    {ok, Conn} = psql_migration:open_connection(),
+    {ok, Conn} = psql_migration:open_connection([]),
     Handlers = lists:map(fun(Mod) ->
                                  {ok, State} = Mod:init(Conn),
                                  {Mod, State}
