@@ -56,7 +56,6 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                             fun update_balance/3]),
     BlockHeight = blockchain_block_v1:height(Block),
     Queries = [q_insert_account(BlockHeight, A, State) || A <- maps:values(Accounts)],
-    lager:info("QUERIES ~p", [Queries]),
     be_block_handler:run_queries(Queries, State#state.conn).
 
 q_insert_account(BlockHeight, Acc=#account{}, #state{s_insert_account=Stmt}) ->

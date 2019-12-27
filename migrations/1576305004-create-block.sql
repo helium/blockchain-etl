@@ -54,11 +54,14 @@ CREATE TABLE transactions (
        PRIMARY KEY (hash)
 );
 
+CREATE INDEX transaction_type_idx on transactions(type);
+
 CREATE TYPE transaction_actor_role as ENUM (
        'payee',
        'payer',
        'owner',
        'gateway',
+       'reward_gateway',
        'challenger',
        'challengee',
        'witness',

@@ -98,7 +98,7 @@ to_actors(blockchain_txn_rewards_v1, T) ->
                        PayeeAcc = [{"payee", blockchain_txn_reward_v1:account(R)} | PayeeAcc0],
                        GatewayAcc = case blockchain_txn_reward_v1:gateway(R) of
                                         undefined -> GatewayAcc0;
-                                        G -> [{"gateway", G} | GatewayAcc0]
+                                        G -> [{"reward_gateway", G} | GatewayAcc0]
                                     end,
                        {PayeeAcc, GatewayAcc}
                end,
