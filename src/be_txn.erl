@@ -65,7 +65,7 @@ to_json(blockchain_txn_oui_v1, T) ->
 to_json(blockchain_txn_gen_gateway_v1, T) ->
     Location = case blockchain_txn_gen_gateway_v1:location(T) of
                    undefined -> null;
-                   L -> h3:to_string(L)
+                   L -> list_to_binary(h3:to_string(L))
                end,
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:gateway(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:owner(T)),
@@ -109,7 +109,7 @@ to_json(blockchain_txn_add_gateway_v1, T) ->
 to_json(blockchain_txn_assert_location_v1, T) ->
     Location = case blockchain_txn_assert_location_v1:location(T) of
                    undefined -> null;
-                   L -> h3:to_string(L)
+                   L -> list_to_binary(h3:to_string(L))
                end,
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:gateway(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:owner(T)),
