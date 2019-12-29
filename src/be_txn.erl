@@ -63,9 +63,13 @@ to_json(blockchain_txn_oui_v1, T) ->
       <<"owner_signature">> => ?BIN_TO_B64(blockchain_txn_oui_v1:owner_signature(T)),
       <<"payer_signature">> => ?BIN_TO_B64(blockchain_txn_oui_v1:payer_signature(T))};
 to_json(blockchain_txn_gen_gateway_v1, T) ->
+    Location = case blockchain_txn_gen_gateway_v1:location(T) of
+                   undefined -> null;
+                   L -> h3:to_string(L)
+               end,
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:gateway(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:owner(T)),
-      <<"location">> => blockchain_txn_gen_gateway_v1:location(T),
+      <<"location">> => Location,
       <<"nonce">> => blockchain_txn_gen_gateway_v1:nonce(T) };
 to_json(blockchain_txn_routing_v1, T) ->
     #{<<"oui">> => blockchain_txn_routing_v1:oui(T),
@@ -103,13 +107,17 @@ to_json(blockchain_txn_add_gateway_v1, T) ->
       <<"staking_fee">> => blockchain_txn_add_gateway_v1:staking_fee(T),
       <<"fee">> => blockchain_txn_add_gateway_v1:fee(T) };
 to_json(blockchain_txn_assert_location_v1, T) ->
+    Location = case blockchain_txn_assert_location_v1:location(T) of
+                   undefined -> null;
+                   L -> h3:to_string(L)
+               end,
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:gateway(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:owner(T)),
       <<"owner_signature">> => ?BIN_TO_B64(blockchain_txn_assert_location_v1:owner_signature(T)),
       <<"gateway_signature">> => ?BIN_TO_B64(blockchain_txn_assert_location_v1:gateway_signature(T)),
       <<"payer">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:payer(T)),
       <<"payer_signature">> => ?BIN_TO_B64(blockchain_txn_assert_location_v1:payer_signature(T)),
-      <<"location">> => blockchain_txn_assert_location_v1:location(T),
+      <<"location">> => Location,
       <<"nonce">> => blockchain_txn_assert_location_v1:nonce(T),
       <<"staking_fee">> => blockchain_txn_assert_location_v1:staking_fee(T),
       <<"fee">> => blockchain_txn_assert_location_v1:fee(T) };
