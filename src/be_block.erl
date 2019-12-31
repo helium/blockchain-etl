@@ -39,7 +39,7 @@ init(Conn) ->
 load(_Hash, Block, _Ledger, State=#state{}) ->
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Block, [], State),
-    be_block_handler:run_queries(BlockQueries, State#state.conn).
+    be_block_handler:run_queries(BlockQueries, State#state.conn, State).
 
 q_insert_block(Block, Query, State=#state{s_insert_block=Stmt}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),

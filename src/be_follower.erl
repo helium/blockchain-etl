@@ -91,19 +91,23 @@ handle_info({blockchain_event, {add_block, Hash, _Sync, Ledger}}, State=#state{}
     {ok, Block} = blockchain:get_block(Hash, State#state.chain),
     Start = erlang:monotonic_time(),
     LoadFun = fun(_) ->
-                      lists:foldl(fun({Handler, HandlerState}, CountMap) ->
-                                          {ok, Count} = Handler:load(Hash, Block, Ledger, HandlerState),
-                                          CountMap#{Handler => Count}
-                                  end, #{}, State#state.handler_state)
+                      {Counts, States} =
+                          lists:foldl(fun({Handler, HandlerState}, {CountMap, HandlerStates}) ->
+                                              {ok, Count, NewHandlerState} =
+                                                  Handler:load(Hash, Block, Ledger, HandlerState),
+                                              {CountMap#{Handler => Count},
+                                               [{Handler, NewHandlerState} | HandlerStates]}
+                                      end, {#{}, []}, State#state.handler_state),
+                      {Counts, lists:reverse(States)}
               end,
     lager:info("Storing block: ~p", [blockchain_block_v1:height(Block)]),
-    Counts = epgsql:with_transaction(State#state.db_conn, LoadFun, [{reraise, true}]),
+    {Counts, HandlerStates} = epgsql:with_transaction(State#state.db_conn, LoadFun, [{reraise, true}]),
     Latency = erlang:monotonic_time() - Start,
     telemetry:execute([be_follower, add_block],
                       Counts#{latency => Latency},
                       #{block => blockchain_block_v1:height(Block) }),
 
-    {noreply, State};
+    {noreply, State#state{handler_state=HandlerStates}};
 
 %% Wait fo chain to come up
 handle_info(chain_check, State=#state{chain=undefined}) ->

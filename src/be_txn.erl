@@ -1,8 +1,7 @@
 -module(be_txn).
 -export([to_type/1, to_json/1]).
 
--define (BIN_TO_B58(B), list_to_binary(libp2p_crypto:bin_to_b58((B)))).
--define (BIN_TO_B64(B), list_to_binary(base64:encode_to_string((B)))).
+-include("be_block_handler.hrl").
 
 -spec to_type(atom()) -> string().
 to_type(blockchain_txn_coinbase_v1) ->

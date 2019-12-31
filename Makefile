@@ -1,4 +1,4 @@
-.PHONY: compile rel cover test typecheck doc ci
+.PHONY: compile rel cover test typecheck doc ci start stop reset
 
 REBAR=./rebar3
 SHORTSHA=`git rev-parse --short HEAD`
@@ -40,3 +40,18 @@ doc:
 
 release:
 	$(REBAR) release
+
+
+start:
+	./_build/default/rel/blockchain_etl/bin/blockchain_etl start
+
+stop:
+	-./_build/default/rel/blockchain_etl/bin/blockchain_etl stop
+
+reset: stop
+	rm -rf rm -rf ./_build/default/rel/blockchain_etl/data/ledger.db
+	rm -rf rm -rf ./_build/default/rel/blockchain_etl/logs/*
+	_build/default/bin/psql_migration reset
+
+console:
+	./_build/default/rel/blockchain_etl/bin/blockchain_etl remote_console

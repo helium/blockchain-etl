@@ -24,7 +24,7 @@ init(Conn) ->
 
 load(_Hash, Block, _Ledger, State=#state{}) ->
     Queries = q_insert_transaction_actors(Block, [], State),
-    be_block_handler:run_queries(Queries, State#state.conn).
+    be_block_handler:run_queries(Queries, State#state.conn, State).
 
 q_insert_transaction_actors(Block, Query, #state{s_insert_actor=Stmt}) ->
     Txns = blockchain_block_v1:transactions(Block),
