@@ -16,7 +16,8 @@
         [
          be_block,
          be_txn_actor,
-         be_account
+         be_account,
+         be_gateway
         ]).
 
 -record(state,
