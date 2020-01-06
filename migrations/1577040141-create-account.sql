@@ -2,7 +2,7 @@
 -- :up
 
 CREATE TABLE accounts (
-       block BIGINT NOT NULL references blocks,
+       block BIGINT NOT NULL references blocks on delete cascade,
        address TEXT NOT NULL,
 
        dc_balance BIGINT NOT NULL DEFAULT 0,

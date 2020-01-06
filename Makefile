@@ -50,7 +50,7 @@ stop:
 
 reset: stop
 	rm -rf rm -rf ./_build/default/rel/blockchain_etl/data/ledger.db
-	rm -rf rm -rf ./_build/default/rel/blockchain_etl/logs/*
+	rm -rf rm -rf ./_build/default/rel/blockchain_etl/log/*
 	_build/default/bin/psql_migration reset
 
 console:
