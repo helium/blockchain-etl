@@ -1,0 +1,6 @@
+steps:
+  - commands:
+      - "make ci"
+    name: ":hammer: build"
+    agents:
+      queue: "erlang"
