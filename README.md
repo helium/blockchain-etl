@@ -1,6 +1,6 @@
 # libp2p-peerbook
 
-[![Build status](https://badge.buildkite.com/foo.svg)](https://buildkite.com/helium/blockchain-etl)
+[![Build status](https://badge.buildkite.com/a1f6f5135577f0039b6bd6821d5c8f87466ff9c024dbf4a60b.svg)](https://buildkite.com/helium/blockchain-etl)
 
 This is an Erlang application to follow the Helium blockchain and
 store it in a Postgres database. This _ingest service_ tracks all
