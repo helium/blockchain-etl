@@ -28,9 +28,7 @@ test:
 	$(REBAR) as test do eunit,ct
 
 ci:
-	$(REBAR) as test do eunit,ct,cover && $(REBAR) do xref, dialyzer
-	$(REBAR) covertool generate
-	codecov --required -f _build/test/covertool/blockchain_etl.covertool.xml
+	$(REBAR) do xref, dialyzer
 
 typecheck:
 	$(REBAR) dialyzer
