@@ -75,7 +75,7 @@ witnesses_to_json(Witnesses) ->
 
 witness_to_json(Witness) ->
     #{
-      <<"histogram">> =>   blockchain_ledger_gatway_v2:withess_hist(Witness),
-      <<"first_time">> =>  ?NULL_OR_VALUE(blockchain_ledger_gatway_v2:withess_first_time(Witness)),
-      <<"recent_time">> => ?NULL_OR_VALUE(blockchain_ledger_gatway_v2:withess_recent_time(Witness))
+      <<"histogram">> =>   blockchain_ledger_gateway_v2:witness_hist(Witness),
+      <<"first_time">> =>  ?NULL_OR_VALUE(blockchain_ledger_gateway_v2:witness_first_time(Witness)),
+      <<"recent_time">> => ?NULL_OR_VALUE(blockchain_ledger_gateway_v2:witness_recent_time(Witness))
      }.

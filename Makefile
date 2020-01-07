@@ -28,9 +28,7 @@ test:
 	$(REBAR) as test do eunit,ct
 
 ci:
-	$(REBAR) as test do eunit,ct,cover && $(REBAR) do xref, dialyzer
-	$(REBAR) covertool generate
-	codecov --required -f _build/test/covertool/blockchain_etl.covertool.xml
+	$(REBAR) do xref, dialyzer
 
 typecheck:
 	$(REBAR) dialyzer
@@ -43,12 +41,14 @@ release:
 
 
 start:
+	cp -f .env ./_build/default/rel/blockchain_etl/
 	./_build/default/rel/blockchain_etl/bin/blockchain_etl start
 
 stop:
 	-./_build/default/rel/blockchain_etl/bin/blockchain_etl stop
 
 reset: stop
+	cp -f .env ./_build/default/rel/blockchain_etl/
 	rm -rf rm -rf ./_build/default/rel/blockchain_etl/data/ledger.db
 	rm -rf rm -rf ./_build/default/rel/blockchain_etl/log/*
 	_build/default/bin/psql_migration reset
