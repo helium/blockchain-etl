@@ -22,7 +22,7 @@ init(Conn) ->
     {ok, _} = epgsql:update_type_cache(Conn, [{epgsql_codec_json, jsone}]),
     {ok, InsertBlock} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK,
-                     "insert into blocks (height, prev_hash, time, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7);", []),
+                     "insert into blocks (height, time, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9);", []),
     {ok, InsertBlockSig} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK_SIG,
                      "insert into block_signatures (block, signer, signature) values ($1, $2, $3)", []),
@@ -36,16 +36,18 @@ init(Conn) ->
             s_insert_txn = InsertTxn
            }}.
 
-load(_Hash, Block, _Ledger, State=#state{}) ->
+load(Hash, Block, _Ledger, State=#state{}) ->
     %% Seperate the queries to avoid the batches getting too big
-    BlockQueries = q_insert_block(Block, [], State),
+    BlockQueries = q_insert_block(Hash, Block, [], State),
     be_block_handler:run_queries(BlockQueries, State#state.conn, State).
 
-q_insert_block(Block, Query, State=#state{s_insert_block=Stmt}) ->
+q_insert_block(Hash, Block, Query, State=#state{s_insert_block=Stmt}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     Params = [blockchain_block_v1:height(Block),
-              ?BIN_TO_B64(blockchain_block_v1:prev_hash(Block)),
               blockchain_block_v1:time(Block),
+              ?BIN_TO_B64(blockchain_block_v1:prev_hash(Block)),
+              ?BIN_TO_B64(Hash),
+              length(blockchain_block_v1:transactions(Block)),
               blockchain_block_v1:hbbft_round(Block),
               ElectionEpoch,
               EpochStart,

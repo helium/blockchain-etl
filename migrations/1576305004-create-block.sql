@@ -3,8 +3,10 @@
 CREATE TABLE blocks (
        height BIGINT NOT NULL,
 
-       prev_hash TEXT,
        time BIGINT NOT NULL,
+       prev_hash TEXT,
+       block_hash TEXT NOT NULL,
+       transaction_count INT NOT NULL,
        hbbft_round BIGINT NOT NULL,
        election_epoch BIGINT NOT NULL,
        epoch_start BIGINT NOT NULL,
