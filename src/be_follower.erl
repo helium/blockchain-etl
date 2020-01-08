@@ -84,11 +84,7 @@ handle_cast(_Msg, State) ->
     lager:warning("unexpected cast ~p", [_Msg]),
     {noreply, State}.
 
-handle_info({blockchain_event, {add_block, Hash, _Sync, _Ledger}}, State=#state{db_conn=undefined}) ->
-    {ok, Block} = blockchain:get_block(Hash, State#state.chain),
-    lager:info("Heard about block: ~p", [blockchain_block_v1:height(Block)]),
-    {noreply, State};
-handle_info({blockchain_event, {add_block, Hash, _Sync, Ledger}}, State=#state{}) ->
+handle_info({blockchain_event, From, {add_block, Hash, _Sync, Ledger}}, State=#state{}) ->
     {ok, Block} = blockchain:get_block(Hash, State#state.chain),
     Start = erlang:monotonic_time(),
     LoadFun = fun(_) ->
@@ -101,14 +97,21 @@ handle_info({blockchain_event, {add_block, Hash, _Sync, Ledger}}, State=#state{}
                                       end, {#{}, []}, State#state.handler_state),
                       {Counts, lists:reverse(States)}
               end,
+
     lager:info("Storing block: ~p", [blockchain_block_v1:height(Block)]),
     {Counts, HandlerStates} = epgsql:with_transaction(State#state.db_conn, LoadFun, [{reraise, true}]),
+
     Latency = erlang:monotonic_time() - Start,
     telemetry:execute([be_follower, add_block],
                       Counts#{latency => Latency},
                       #{block => blockchain_block_v1:height(Block) }),
 
+    blockchain_event:acknowledge(From),
     {noreply, State#state{handler_state=HandlerStates}};
+handle_info({blockchain_event, From, Other}, State=#state{}) ->
+    lager:info("Ignoring blockchain event: ~p", [Other]),
+    blockchain_event:acknowledge(From),
+    {noreply, State};
 
 %% Wait fo chain to come up
 handle_info(chain_check, State=#state{chain=undefined}) ->
@@ -117,7 +120,7 @@ handle_info(chain_check, State=#state{chain=undefined}) ->
             erlang:send_after(500, self(), chain_check),
             {noreply, State};
         Chain ->
-            ok = blockchain_event:add_handler(self()),
+            ok = blockchain_event:add_sync_handler(self()),
             {noreply, State#state{chain = Chain}}
     end;
 handle_info(chain_check, State=#state{}) ->
