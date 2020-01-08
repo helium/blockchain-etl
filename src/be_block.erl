@@ -3,6 +3,7 @@
 -behavior(be_block_handler).
 
 -include("be_block_handler.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([init/1, load/4]).
 
@@ -13,6 +14,7 @@
 -record(state,
        {
         conn :: epgsql:connection(),
+        height :: non_neg_integer(),
         s_insert_block :: epgsql:statement(),
         s_insert_txn :: epgsql:statement(),
         s_insert_block_sig :: epgsql:statement()
@@ -29,17 +31,27 @@ init(Conn) ->
     {ok, InsertTxn} =
         epgsql:parse(Conn, ?Q_INSERT_TXN,
                      "insert into transactions (block, hash, type, fields) values ($1, $2, $3, $4)", []),
+    {ok, _, [{HeightStr}]} = epgsql:squery(Conn, "select max(height) from blocks"),
+    Height = case HeightStr of
+                 null -> 0;
+                 _ -> binary_to_integer(HeightStr)
+             end,
+    lager:info("Block database at height: ~p", [Height]),
     {ok, #state{
             conn = Conn,
+            height = Height,
             s_insert_block = InsertBlock,
             s_insert_block_sig = InsertBlockSig,
             s_insert_txn = InsertTxn
            }}.
 
 load(Hash, Block, _Ledger, State=#state{}) ->
+    BlockHeight = blockchain_block_v1:height(Block),
+    ?assertEqual(BlockHeight, State#state.height + 1,
+                 "New block must line up with stored height"),
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Hash, Block, [], State),
-    be_block_handler:run_queries(BlockQueries, State#state.conn, State).
+    be_block_handler:run_queries(BlockQueries, State#state.conn, State#state{height=BlockHeight}).
 
 q_insert_block(Hash, Block, Query, State=#state{s_insert_block=Stmt}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
