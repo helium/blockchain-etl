@@ -23,3 +23,12 @@ listening for new block events.
   the database
 * Run `make start` to start the application. Logs will be at
   `_build/default/rel/blockchain_etl/log/*`.
+
+Once started the application will start syncing the blockchain and
+loading blocks into the attached database.
+
+*NOTE:* Schema changes _will_ happen in this repo as we flesh out the
+corresponding APIs. A schema change _will_ require a `make reset` to
+reset the database and associated blockchain ledger. On a reset the
+blockchain store itself is not affected but the ledger is replayed
+which allows the application to reload the database.
