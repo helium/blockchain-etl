@@ -27,8 +27,15 @@ listening for new block events.
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
 
-*NOTE:* Schema changes _will_ happen in this repo as we flesh out the
+## WARNING
+
+Schema changes _will_ happen in this repo as we flesh out the
 corresponding APIs. A schema change _will_ require a `make reset` to
 reset the database and associated blockchain ledger. On a reset the
 blockchain store itself is not affected but the ledger is replayed
 which allows the application to reload the database.
+
+## IN PROGRESS
+
+* Ingest of new transactions (aka pending transactions)
+* Reverse geo-coding
