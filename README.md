@@ -39,3 +39,4 @@ which allows the application to reload the database.
 
 * Ingest of new transactions (aka pending transactions)
 * Reverse geo-coding
+* Docker setup
