@@ -21,7 +21,6 @@
        }).
 
 init(Conn) ->
-    {ok, _} = epgsql:update_type_cache(Conn, [{epgsql_codec_json, jsone}]),
     {ok, InsertBlock} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK,
                      "insert into blocks (height, time, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9);", []),
@@ -36,7 +35,6 @@ init(Conn) ->
                  null -> 0;
                  _ -> binary_to_integer(HeightStr)
              end,
-    lager:info("Block database at height: ~p", [Height]),
     {ok, #state{
             conn = Conn,
             height = Height,

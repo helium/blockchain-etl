@@ -160,7 +160,11 @@ row_count(TableName, Conn) ->
 connect_database([]) ->
     {undefined, []};
 connect_database(HandlerModules) ->
-    {ok, Conn} = psql_migration:open_connection([]),
+    {ok, Opts} = psql_migration:connection_opts([]),
+    Codecs = [{epgsql_codec_json, {jsone,
+                                   [{object_key_type, scalar}, undefined_as_null],
+                                   [undefined_as_null]}}],
+    {ok, Conn} = epgsql:connect(Opts#{codecs => Codecs}),
     Handlers = lists:map(fun(Mod) ->
                                  {ok, State} = Mod:init(Conn),
                                  {Mod, State}
