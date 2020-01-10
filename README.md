@@ -13,6 +13,10 @@ listening for new block events.
 * Clone this repository
 * Create `.env` file by copying `.env.template` and editing it to
   reflect your postgres and other keys and credentials
+
+  **Note:** In order for resets to work the postgres user specified in
+  the `.env` file needs to exist and have `CREATEDB` permissions.
+
 * Run `make release` in the top level folder
 * Run `make reset` to initialize the database and reset the
   ledger. You will need to run a make reset every time the schema or
