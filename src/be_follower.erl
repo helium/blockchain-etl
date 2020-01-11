@@ -157,8 +157,6 @@ row_count(TableName, Conn) ->
     {Num, <<>>} = string:to_integer(V),
     Num.
 
-connect_database([]) ->
-    {undefined, []};
 connect_database(HandlerModules) ->
     {ok, Opts} = psql_migration:connection_opts([]),
     Codecs = [{epgsql_codec_json, {jsone,

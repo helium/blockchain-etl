@@ -64,7 +64,7 @@ to_json(blockchain_txn_oui_v1, T) ->
 to_json(blockchain_txn_gen_gateway_v1, T) ->
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:gateway(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_gen_gateway_v1:owner(T)),
-      <<"location">> => ?NULL_OR_H3(blockchain_txn_gen_gateway_v1:location(T)),
+      <<"location">> => ?MAYBE_H3(blockchain_txn_gen_gateway_v1:location(T)),
       <<"nonce">> => blockchain_txn_gen_gateway_v1:nonce(T) };
 to_json(blockchain_txn_routing_v1, T) ->
     #{<<"oui">> => blockchain_txn_routing_v1:oui(T),
@@ -108,7 +108,7 @@ to_json(blockchain_txn_assert_location_v1, T) ->
       <<"gateway_signature">> => ?BIN_TO_B64(blockchain_txn_assert_location_v1:gateway_signature(T)),
       <<"payer">> => ?BIN_TO_B58(blockchain_txn_assert_location_v1:payer(T)),
       <<"payer_signature">> => ?BIN_TO_B64(blockchain_txn_assert_location_v1:payer_signature(T)),
-      <<"location">> => ?NULL_OR_H3(blockchain_txn_assert_location_v1:location(T)),
+      <<"location">> => ?MAYBE_H3(blockchain_txn_assert_location_v1:location(T)),
       <<"nonce">> => blockchain_txn_assert_location_v1:nonce(T),
       <<"staking_fee">> => blockchain_txn_assert_location_v1:staking_fee(T),
       <<"fee">> => blockchain_txn_assert_location_v1:fee(T) };
@@ -172,7 +172,7 @@ to_json(blockchain_txn_vars_v1, T) ->
 to_json(blockchain_txn_rewards_v1, T) ->
     RewardJson = fun(R) ->
                          #{<<"account">> => ?BIN_TO_B58(blockchain_txn_reward_v1:account(R)),
-                           <<"gateway">> => ?NULL_OR_B58(blockchain_txn_reward_v1:gateway(R)),
+                           <<"gateway">> => ?MAYBE_B58(blockchain_txn_reward_v1:gateway(R)),
                            <<"amount">> => blockchain_txn_reward_v1:amount(R),
                            <<"type">> => blockchain_txn_reward_v1:type(R) }
                  end,
@@ -182,7 +182,7 @@ to_json(blockchain_txn_rewards_v1, T) ->
 to_json(blockchain_txn_token_burn_v1, T) ->
     #{<<"type">> => blockchain_txn_token_burn_v1:type(T),
       <<"payer">> => ?BIN_TO_B58(blockchain_txn_token_burn_v1:payer(T)),
-      <<"key">> => ?NULL_OR_B58(blockchain_txn_token_burn_v1:key(T)),
+      <<"key">> => ?MAYBE_B58(blockchain_txn_token_burn_v1:key(T)),
       <<"amount">> => blockchain_txn_token_burn_v1:amount(T),
       <<"nonce">> => blockchain_txn_token_burn_v1:nonce(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_token_burn_v1:signature(T)) };

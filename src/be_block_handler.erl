@@ -8,7 +8,7 @@
 -type query() :: {Stmt::epgsql:statement(), Params::[any()]}.
 -export_type([query/0]).
 
--export([run_queries/3, null_or_value/1, null_or_fn/2, null_or_b64/1, null_or_b58/1, null_or_h3/1]).
+-export([run_queries/3, maybe_undefined/1, maybe_fn/2, maybe_b64/1, maybe_b58/1, maybe_h3/1]).
 
 -spec run_queries([query()], epgsql:connection(), State::any()) -> {ok, non_neg_integer(), State::any()}.
 run_queries(Queries, Conn, State) ->
@@ -23,26 +23,30 @@ run_queries(Queries, Conn, State) ->
             throw({load_error, Errors})
     end.
 
--spec null_or_value(undefined | any()) -> null | any().
-null_or_value(undefined) ->
-    null;
-null_or_value(V) ->
+-spec maybe_undefined(any() | undefined | null) -> any() | undefined.
+maybe_undefined(undefined) ->
+    undefined;
+maybe_undefined(null) ->
+    undefined;
+maybe_undefined(V) ->
     V.
 
--spec null_or_fn(fun((any()) -> any()), undefined | any()) -> null | any().
-null_or_fn(_Fun, undefined) ->
-    null;
-null_or_fn(Fun, V) ->
+-spec maybe_fn(fun((any()) -> any()), undefined | null | any()) -> undefined | any().
+maybe_fn(_Fun, undefined) ->
+    undefined;
+maybe_fn(_Fun, null) ->
+    undefined;
+maybe_fn(Fun, V) ->
     Fun(V).
 
--spec null_or_b64(undefined | binary()) -> null | string().
-null_or_b64(V) ->
-    null_or_fn(fun(Bin) -> ?BIN_TO_B64(Bin) end, V).
+-spec maybe_b64(undefined | binary()) -> null | string().
+maybe_b64(V) ->
+    maybe_fn(fun(Bin) -> ?BIN_TO_B64(Bin) end, V).
 
--spec null_or_b58(undefined | binary()) -> null | string().
-null_or_b58(V) ->
-    null_or_fn(fun(Bin) -> ?BIN_TO_B58(Bin) end, V).
+-spec maybe_b58(undefined | binary()) -> null | binary().
+maybe_b58(V) ->
+    maybe_fn(fun(Bin) -> ?BIN_TO_B58(Bin) end, V).
 
--spec null_or_h3(undefined | h3:h3index()) -> null | string().
-null_or_h3(V) ->
-    null_or_fn(fun(I) -> list_to_binary(h3:to_string(I)) end, V).
+-spec maybe_h3(undefined | h3:h3index()) -> undefined | binary().
+maybe_h3(V) ->
+    maybe_fn(fun(I) -> list_to_binary(h3:to_string(I)) end, V).
