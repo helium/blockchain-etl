@@ -140,7 +140,7 @@ mk_gateway_witness(Key, {db, #{
                               }}) ->
     FixedHistogram = lists:keysort(1, lists:map(fun({K, V}) ->
                                                         {binary_to_integer(K), V}
-                                                end, Histogram)),
+                                                end, maps:to_list(Histogram))),
     #gateway_witness{
        address = ?B58_TO_BIN(Key),
        first_time = FirstTime,
