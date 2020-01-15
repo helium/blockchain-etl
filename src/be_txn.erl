@@ -159,6 +159,7 @@ to_json(blockchain_txn_poc_receipts_v1, T) ->
       <<"onion_key_hash">> => ?BIN_TO_B64(blockchain_txn_poc_receipts_v1:onion_key_hash(T)),
       <<"path">> => [to_json(blockchain_poc_path_element_v1, E) || E <- blockchain_txn_poc_receipts_v1:path(T)],
       <<"fee">> => blockchain_txn_poc_receipts_v1:fee(T),
+      <<"challenger">> => ?BIN_TO_B58(blockchain_txn_poc_receipts_v1:challenger(T)),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_poc_receipts_v1:signature(T)) };
 to_json(blockchain_txn_vars_v1, T) ->
     #{<<"vars">> => blockchain_txn_vars_v1:decoded_vars(T),
