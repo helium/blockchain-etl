@@ -8,12 +8,16 @@
 
 -type gateway_cache() :: #{libp2p_crypto:pubkey_bin() => binary()}.
 
+-define(GATEWAY_LEDGER_REFRESH_SECS, 30).
+
 -record(state,
        {
         conn :: epgsql:connection(),
         s_insert_gateawy :: epgsql:statement(),
 
-        gateways=#{} :: gateway_cache()
+        gateways=#{} :: gateway_cache(),
+        last_gateway_ledger_refresh=0 :: non_neg_integer(),
+        gateway_ledger_refresh_secs=?GATEWAY_LEDGER_REFRESH_SECS  :: non_neg_integer()
        }).
 
 -define(Q_INSERT_GATEWAY, "insert_gateway").
@@ -24,11 +28,10 @@ init(Conn) ->
                      "insert into gateways (block, address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
 
 
-    {ok, #state{
-            conn=Conn,
-            gateways=init_gateway_cache(Conn),
-            s_insert_gateawy=InsertGateway
-           }}.
+    {ok, init_gateway_cache(#state{
+                               conn=Conn,
+                               s_insert_gateawy=InsertGateway
+                              })}.
 
 load(_Hash, Block, Ledger, State=#state{}) ->
     Active = blockchain_ledger_v1:active_gateways(Ledger),
@@ -45,8 +48,22 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                                   {NewQueries, Hashes#{Key => NewHash}}
                           end
                   end, {[], State#state.gateways}, Active),
-    %% Seperate the queries to avoid the batches getting too big
-    be_block_handler:run_queries(Queries, State#state.conn, State#state{gateways=Hashes}).
+    maybe_refresh_gateway_ledger(be_block_handler:run_queries(Queries,
+                                                              State#state.conn,
+                                                              State#state{gateways=Hashes})).
+
+maybe_refresh_gateway_ledger({ok, 0, State=#state{}}) ->
+    {ok, 0, State};
+maybe_refresh_gateway_ledger({ok, Count, State=#state{conn=Conn}}) ->
+    case erlang:system_time(seconds) - State#state.last_gateway_ledger_refresh
+        > State#state.gateway_ledger_refresh_secs of
+        true ->
+            lager:info("Updating gateway_ledger table"),
+            {ok, _, _} = epgsql:squery(Conn, "refresh materialized view concurrently gateway_ledger"),
+            {ok, Count+1, State#state{last_gateway_ledger_refresh=erlang:system_time(seconds)}};
+        _ ->
+            {ok, Count, State}
+    end.
 
 q_insert_gateway(BlockHeight, Address, GW, Queries, #state{s_insert_gateawy=Stmt}) ->
     Params =
@@ -79,13 +96,15 @@ witness_to_json(Witness) ->
 %% Gateway Cache
 %%
 
--spec init_gateway_cache(epgsql:connection()) -> gateway_cache().
-init_gateway_cache(Conn) ->
+-spec init_gateway_cache(#state{}) -> #state{}.
+init_gateway_cache(State=#state{conn=Conn}) ->
     lager:info("Constructing gateway cache"),
+    {ok, _, _} =
+        epgsql:squery(Conn,
+                  "refresh materialized view gateway_ledger"),
     {ok, _, GWList} =
         epgsql:equery(Conn,
-                      "select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses from gateways where (block, address) in  (select max(block) as block, address from gateways group by address)"
-                     ),
+                      "select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses from gateway_ledger", []),
     Result = maps:from_list(lists:map(fun(Entry={Address,
                                                  _Owner, _Location,
                                                  _Alpha, _Beta, _Delta,
@@ -95,7 +114,7 @@ init_gateway_cache(Conn) ->
                                               {?B58_TO_BIN(Address), GWHash}
                                       end, GWList)),
     lager:info("Constructed gateway cache: ~p entries", [map_size(Result)]),
-    Result.
+    State#state{gateways=Result}.
 
 
 

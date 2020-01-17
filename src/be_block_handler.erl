@@ -10,7 +10,7 @@
 
 -export([run_queries/3, maybe_undefined/1, maybe_fn/2, maybe_b64/1, maybe_b58/1, maybe_h3/1]).
 
--spec run_queries([query()], epgsql:connection(), State::any()) -> {ok, non_neg_integer(), State::any()}.
+-spec run_queries([query()], epgsql:connection(), State::any()) -> {ok, QueryCount::non_neg_integer(), State::any()}.
 run_queries(Queries, Conn, State) ->
     Results = epgsql:execute_batch(Conn, Queries),
     %% Find any errors and throw an error
