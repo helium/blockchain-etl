@@ -43,15 +43,15 @@ init(Conn) ->
             s_insert_txn = InsertTxn
            }}.
 
-load(Hash, Block, _Ledger, State=#state{}) ->
+load(Hash, Block, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     ?assertEqual(BlockHeight, State#state.height + 1,
                  "New block must line up with stored height"),
     %% Seperate the queries to avoid the batches getting too big
-    BlockQueries = q_insert_block(Hash, Block, [], State),
+    BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
     be_block_handler:run_queries(BlockQueries, State#state.conn, State#state{height=BlockHeight}).
 
-q_insert_block(Hash, Block, Query, State=#state{s_insert_block=Stmt}) ->
+q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     Params = [blockchain_block_v1:height(Block),
               blockchain_block_v1:time(Block),
@@ -62,9 +62,9 @@ q_insert_block(Hash, Block, Query, State=#state{s_insert_block=Stmt}) ->
               ElectionEpoch,
               EpochStart,
               ?BIN_TO_B64(blockchain_block_v1:rescue_signature(Block))],
-    [{Stmt, Params} | q_insert_signatures(Block, q_insert_transactions(Block, Query, State), State)].
+    [{Stmt, Params} | q_insert_signatures(Block, q_insert_transactions(Block, Queries, Ledger, State), State)].
 
-q_insert_signatures(Block, Query, #state{s_insert_block_sig=Stmt}) ->
+q_insert_signatures(Block, Queries, #state{s_insert_block_sig=Stmt}) ->
     Height = blockchain_block_v1:height(Block),
     Signatures = blockchain_block_v1:signatures(Block),
     lists:foldl(fun({Signer, Signature}, Acc) ->
@@ -74,9 +74,9 @@ q_insert_signatures(Block, Query, #state{s_insert_block_sig=Stmt}) ->
                            ?BIN_TO_B58(Signer),
                            ?BIN_TO_B64(Signature)
                           ]} | Acc]
-                         end, Query, Signatures).
+                         end, Queries, Signatures).
 
-q_insert_transactions(Block, Query, #state{s_insert_txn=Stmt}) ->
+q_insert_transactions(Block, Queries, Ledger, #state{s_insert_txn=Stmt}) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
@@ -84,6 +84,6 @@ q_insert_transactions(Block, Query, #state{s_insert_txn=Stmt}) ->
                           [Height,
                            ?BIN_TO_B64(blockchain_txn:hash(T)),
                            be_txn:to_type(blockchain_txn:type(T)),
-                           be_txn:to_json(T)
+                           be_txn:to_json(T, Ledger)
                           ]} | Acc]
-                end, Query, Txns).
+                end, Queries, Txns).
