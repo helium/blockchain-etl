@@ -127,7 +127,7 @@ to_json(blockchain_txn_redeem_htlc_v1, T, _Ledger) ->
       <<"preimage">> => ?BIN_TO_B64(blockchain_txn_redeem_htlc_v1:preimage(T)),
       <<"fee">> => blockchain_txn_redeem_htlc_v1:fee(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_redeem_htlc_v1:signature(T)) };
-to_json(blockchain_txn_poc_request_v1, T, _Ledger) ->
+to_json(blockchain_txn_poc_request_v1, T, Ledger) ->
     Challenger = blockchain_txn_poc_request_v1:challenger(T),
     {ok, ChallengerInfo} = blockchain_ledger_v1:find_gateway_info(Challenger, Ledger),
     ChallengerLoc = blockchain_ledger_gateway_v2:location(ChallengerInfo),
@@ -140,24 +140,24 @@ to_json(blockchain_txn_poc_request_v1, T, _Ledger) ->
       <<"version">> => blockchain_txn_poc_request_v1:version(T),
       <<"fee">> => blockchain_txn_poc_request_v1:fee(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_poc_request_v1:signature(T)) };
-to_json(blockchain_poc_receipt_v1, undefined) ->
+to_json(blockchain_poc_receipt_v1, undefined, _Ledger) ->
     null;
-to_json(blockchain_poc_receipt_v1, Receipt) ->
+to_json(blockchain_poc_receipt_v1, Receipt, _Ledger) ->
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_poc_receipt_v1:gateway(Receipt)),
       <<"timestamp">> => blockchain_poc_receipt_v1:timestamp(Receipt),
       <<"signal">> => blockchain_poc_receipt_v1:signal(Receipt),
       <<"data">> => ?BIN_TO_B64(blockchain_poc_receipt_v1:data(Receipt)),
       <<"origin">> => blockchain_poc_receipt_v1:origin(Receipt),
       <<"signature">> => ?BIN_TO_B64(blockchain_poc_receipt_v1:signature(Receipt)) };
-to_json(blockchain_poc_witness_v1, Witness) ->
+to_json(blockchain_poc_witness_v1, Witness, _Ledger) ->
     #{<<"gateway">> => ?BIN_TO_B58(blockchain_poc_witness_v1:gateway(Witness)),
       <<"timestamp">> => blockchain_poc_witness_v1:timestamp(Witness),
       <<"signal">> => blockchain_poc_witness_v1:signal(Witness),
       <<"packet_hash">> => ?BIN_TO_B64(blockchain_poc_witness_v1:packet_hash(Witness))};
-to_json(blockchain_poc_path_element_v1, Elem) ->
+to_json(blockchain_poc_path_element_v1, Elem, Ledger) ->
     #{<<"challengee">> => ?BIN_TO_B58(blockchain_poc_path_element_v1:challengee(Elem)),
-      <<"receipt">> => to_json(blockchain_poc_receipt_v1, blockchain_poc_path_element_v1:receipt(Elem)),
-      <<"witnesses">> => [to_json(blockchain_poc_witness_v1, W) ||
+      <<"receipt">> => to_json(blockchain_poc_receipt_v1, blockchain_poc_path_element_v1:receipt(Elem), Ledger),
+      <<"witnesses">> => [to_json(blockchain_poc_witness_v1, W, Ledger) ||
                              W <- blockchain_poc_path_element_v1:witnesses(Elem)] };
 to_json(blockchain_txn_poc_receipts_v1, T, Ledger) ->
     Challenger = blockchain_txn_poc_receipts_v1:challenger(T),
@@ -165,7 +165,7 @@ to_json(blockchain_txn_poc_receipts_v1, T, Ledger) ->
     ChallengerLoc = blockchain_ledger_gateway_v2:location(ChallengerInfo),
     #{<<"secret">> => ?BIN_TO_B64(blockchain_txn_poc_receipts_v1:secret(T)),
       <<"onion_key_hash">> => ?BIN_TO_B64(blockchain_txn_poc_receipts_v1:onion_key_hash(T)),
-      <<"path">> => [to_json(blockchain_poc_path_element_v1, E) || E <- blockchain_txn_poc_receipts_v1:path(T)],
+      <<"path">> => [to_json(blockchain_poc_path_element_v1, E, Ledger) || E <- blockchain_txn_poc_receipts_v1:path(T)],
       <<"fee">> => blockchain_txn_poc_receipts_v1:fee(T),
       <<"challenger">> => ?BIN_TO_B58(Challenger),
       <<"challenger_owner">> => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(ChallengerInfo)),
