@@ -6,12 +6,15 @@
 
 -export([init/1, load/4]).
 
--define(Q_INSERT_ACCOUNT, "insert_account").
+-define(ACCOUNT_LEDGER_REFRESH_SECS, 30).
 
 -record(state,
        {
         conn :: epgsql:connection(),
-        s_insert_account :: epgsql:statement()
+        s_insert_account :: epgsql:statement(),
+
+        last_account_ledger_refresh=0 :: non_neg_integer(),
+        account_ledger_refresh_secs=?ACCOUNT_LEDGER_REFRESH_SECS  :: non_neg_integer()
        }).
 
 -record(account,
@@ -25,13 +28,21 @@
          nonce = 0
         }).
 
+-define(Q_INSERT_ACCOUNT, "insert_account").
+-define(Q_REFRESH_ASYNC_ACCOUNT_LEDGER, "refresh materialized view concurrently account_ledger").
+
 init(Conn) ->
-    {ok, Stmt} =
+    {ok, InsertAccount} =
         epgsql:parse(Conn, ?Q_INSERT_ACCOUNT,
                      "insert into accounts (block, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) values ($1, $2, $3, $4, $5, $6, $7, $8)", []),
+
+    lager:info("Updating account_ledger table concurrently"),
+    {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
+
     {ok, #state{
             conn = Conn,
-            s_insert_account = Stmt}}.
+            s_insert_account = InsertAccount
+           }}.
 
 load(_Hash, Block, Ledger, State=#state{}) ->
     Txns = blockchain_block_v1:transactions(Block),
@@ -57,7 +68,21 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                             fun update_balance/3]),
     BlockHeight = blockchain_block_v1:height(Block),
     Queries = [q_insert_account(BlockHeight, A, State) || A <- maps:values(Accounts)],
-    be_block_handler:run_queries(Queries, State#state.conn, State).
+    maybe_refresh_account_ledger(be_block_handler:run_queries(Queries, State#state.conn, State)).
+
+maybe_refresh_account_ledger({ok, 0, State=#state{}}) ->
+    {ok, 0, State};
+maybe_refresh_account_ledger({ok, Count, State=#state{conn=Conn}}) ->
+    case erlang:system_time(seconds) - State#state.last_account_ledger_refresh
+        > State#state.account_ledger_refresh_secs of
+        true ->
+            lager:info("Updating account_ledger table concurrently"),
+            {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
+            {ok, Count+1, State#state{last_account_ledger_refresh=erlang:system_time(seconds)}};
+        _ ->
+            {ok, Count, State}
+    end.
+
 
 q_insert_account(BlockHeight, Acc=#account{}, #state{s_insert_account=Stmt}) ->
     Params = [BlockHeight,

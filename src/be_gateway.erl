@@ -21,12 +21,16 @@
        }).
 
 -define(Q_INSERT_GATEWAY, "insert_gateway").
+-define(Q_REFRESH_GATEWAY_LEDGER, "refresh materialized view gateway_ledger").
+-define(Q_REFRESH_ASYNC_GATEWAY_LEDGER, "refresh materialized view concurrently gateway_ledger").
 
 init(Conn) ->
     {ok, InsertGateway} =
         epgsql:parse(Conn, ?Q_INSERT_GATEWAY,
                      "insert into gateways (block, address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
 
+    lager:info("Updating gateway_ledger table"),
+    {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_GATEWAY_LEDGER),
 
     {ok, init_gateway_cache(#state{
                                conn=Conn,
@@ -58,8 +62,8 @@ maybe_refresh_gateway_ledger({ok, Count, State=#state{conn=Conn}}) ->
     case erlang:system_time(seconds) - State#state.last_gateway_ledger_refresh
         > State#state.gateway_ledger_refresh_secs of
         true ->
-            lager:info("Updating gateway_ledger table"),
-            {ok, _, _} = epgsql:squery(Conn, "refresh materialized view concurrently gateway_ledger"),
+            lager:info("Updating gateway_ledger table concurrently"),
+            {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_GATEWAY_LEDGER),
             {ok, Count+1, State#state{last_gateway_ledger_refresh=erlang:system_time(seconds)}};
         _ ->
             {ok, Count, State}
@@ -99,9 +103,6 @@ witness_to_json(Witness) ->
 -spec init_gateway_cache(#state{}) -> #state{}.
 init_gateway_cache(State=#state{conn=Conn}) ->
     lager:info("Constructing gateway cache"),
-    {ok, _, _} =
-        epgsql:squery(Conn,
-                  "refresh materialized view gateway_ledger"),
     {ok, _, GWList} =
         epgsql:equery(Conn,
                       "select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses from gateway_ledger", []),
