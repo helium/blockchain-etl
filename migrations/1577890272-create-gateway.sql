@@ -9,9 +9,10 @@ CREATE TABLE gateways (
 
        location TEXT,
 
-       alpha FLOAT NOT NULL DEFAULT 1.0,
-       beta FLOAT NOT NULL DEFAULT 1.0,
-       delta INT NOT NULL DEFAULT 1,
+       alpha FLOAT NOT NULL,
+       beta FLOAT NOT NULL,
+       delta INT NOT NULL,
+       score FLOAT NOT NULL,
 
        last_poc_challenge BIGINT references blocks(height) on delete set NULL,
        last_poc_onion_key_hash TEXT,

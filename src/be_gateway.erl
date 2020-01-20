@@ -27,7 +27,7 @@
 init(Conn) ->
     {ok, InsertGateway} =
         epgsql:parse(Conn, ?Q_INSERT_GATEWAY,
-                     "insert into gateways (block, address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
+                     "insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);", []),
 
     lager:info("Updating gateway_ledger table"),
     {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_GATEWAY_LEDGER),
@@ -48,7 +48,7 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                                   {Queries, Hashes};
                               {true, NewHash} ->
                                   %% Changed or new
-                                  NewQueries = q_insert_gateway(BlockHeight, Key, GW, Queries, State),
+                                  NewQueries = q_insert_gateway(BlockHeight, Key, GW, Ledger, Queries, State),
                                   {NewQueries, Hashes#{Key => NewHash}}
                           end
                   end, {[], State#state.gateways}, Active),
@@ -69,7 +69,8 @@ maybe_refresh_gateway_ledger({ok, Count, State=#state{conn=Conn}}) ->
             {ok, Count, State}
     end.
 
-q_insert_gateway(BlockHeight, Address, GW, Queries, #state{s_insert_gateawy=Stmt}) ->
+q_insert_gateway(BlockHeight, Address, GW, Ledger, Queries, #state{s_insert_gateawy=Stmt}) ->
+    {_, _, Score}  = blockchain_ledger_gateway_v2:score(Address, GW, BlockHeight, Ledger),
     Params =
         [BlockHeight,
          ?BIN_TO_B58(Address),
@@ -78,6 +79,7 @@ q_insert_gateway(BlockHeight, Address, GW, Queries, #state{s_insert_gateawy=Stmt
          blockchain_ledger_gateway_v2:alpha(GW),
          blockchain_ledger_gateway_v2:beta(GW),
          blockchain_ledger_gateway_v2:delta(GW),
+         Score,
          ?MAYBE_UNDEFINED(blockchain_ledger_gateway_v2:last_poc_challenge(GW)),
          ?MAYBE_B64(blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW)),
          witnesses_to_json(blockchain_ledger_gateway_v2:witnesses(GW))
