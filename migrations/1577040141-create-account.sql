@@ -3,6 +3,7 @@
 
 CREATE TABLE accounts (
        block BIGINT NOT NULL references blocks on delete cascade,
+       timestamp TIMESTAMPTZ NOT NULL,
        address TEXT NOT NULL,
 
        dc_balance BIGINT NOT NULL DEFAULT 0,

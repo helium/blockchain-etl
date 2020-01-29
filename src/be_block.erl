@@ -15,6 +15,8 @@
        {
         conn :: epgsql:connection(),
         height :: non_neg_integer(),
+
+        base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
         s_insert_block :: epgsql:statement(),
         s_insert_txn :: epgsql:statement(),
         s_insert_block_sig :: epgsql:statement()
@@ -23,7 +25,7 @@
 init(Conn) ->
     {ok, InsertBlock} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK,
-                     "insert into blocks (height, time, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9);", []),
+                     "insert into blocks (height, time, timestamp, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
     {ok, InsertBlockSig} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK_SIG,
                      "insert into block_signatures (block, signer, signature) values ($1, $2, $3)", []),
@@ -51,10 +53,13 @@ load(Hash, Block, Ledger, State=#state{}) ->
     BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
     be_block_handler:run_queries(BlockQueries, State#state.conn, State#state{height=BlockHeight}).
 
-q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt}) ->
+q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt, base_secs=BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
+    BlockTime = blockchain_block_v1:time(Block),
+    BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
     Params = [blockchain_block_v1:height(Block),
-              blockchain_block_v1:time(Block),
+              BlockTime,
+              BlockDate,
               ?BIN_TO_B64(blockchain_block_v1:prev_hash(Block)),
               ?BIN_TO_B64(Hash),
               length(blockchain_block_v1:transactions(Block)),

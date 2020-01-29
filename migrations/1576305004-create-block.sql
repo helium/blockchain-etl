@@ -4,6 +4,7 @@ CREATE TABLE blocks (
        height BIGINT NOT NULL,
 
        time BIGINT NOT NULL,
+       timestamp TIMESTAMPTZ NOT NULL,
        prev_hash TEXT,
        block_hash TEXT NOT NULL,
        transaction_count INT NOT NULL,

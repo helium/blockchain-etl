@@ -11,6 +11,7 @@
 -record(state,
        {
         conn :: epgsql:connection(),
+        base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
         s_insert_account :: epgsql:statement(),
 
         last_account_ledger_refresh=0 :: non_neg_integer(),
@@ -34,7 +35,7 @@
 init(Conn) ->
     {ok, InsertAccount} =
         epgsql:parse(Conn, ?Q_INSERT_ACCOUNT,
-                     "insert into accounts (block, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) values ($1, $2, $3, $4, $5, $6, $7, $8)", []),
+                     "insert into accounts (block, timestamp, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", []),
 
     lager:info("Updating account_ledger table concurrently"),
     {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
@@ -67,7 +68,8 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                             fun update_data_credits/3,
                             fun update_balance/3]),
     BlockHeight = blockchain_block_v1:height(Block),
-    Queries = [q_insert_account(BlockHeight, A, State) || A <- maps:values(Accounts)],
+    BlockTime = blockchain_block_v1:time(Block),
+    Queries = [q_insert_account(BlockHeight, BlockTime, A, State) || A <- maps:values(Accounts)],
     maybe_refresh_account_ledger(be_block_handler:run_queries(Queries, State#state.conn, State)).
 
 maybe_refresh_account_ledger({ok, 0, State=#state{}}) ->
@@ -84,8 +86,10 @@ maybe_refresh_account_ledger({ok, Count, State=#state{conn=Conn}}) ->
     end.
 
 
-q_insert_account(BlockHeight, Acc=#account{}, #state{s_insert_account=Stmt}) ->
+q_insert_account(BlockHeight, BlockTime, Acc=#account{}, #state{s_insert_account=Stmt, base_secs=BaseSecs}) ->
+    BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
     Params = [BlockHeight,
+              BlockDate,
               ?BIN_TO_B58(Acc#account.address),
               Acc#account.dc_balance,
               Acc#account.dc_nonce,
