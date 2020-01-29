@@ -78,7 +78,7 @@
   0},
  {<<"ranch">>,{pkg,<<"ranch">>,<<"1.5.0">>},2},
  {<<"rand_compat">>,{pkg,<<"rand_compat">>,<<"0.0.3">>},3},
- {<<"recon">>,{pkg,<<"recon">>,<<"2.5.0">>},1},
+ {<<"recon">>,{pkg,<<"recon">>,<<"2.5.0">>},0},
  {<<"relcast">>,
   {git,"https://github.com/helium/relcast.git",
        {ref,"d9f9db30aeede1344d31c75c24320710e5ba7cc2"}},
