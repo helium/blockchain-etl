@@ -4,6 +4,7 @@
 -define (B58_TO_BIN(B), libp2p_crypto:b58_to_bin(binary_to_list((B)))).
 
 -define (BIN_TO_B64(B), list_to_binary(base64:encode_to_string((B)))).
+-define (B64_TO_BIN(B), base64:decode((B))).
 
 -define (MAYBE_FN(F, V), be_block_handler:maybe_fn((F), (V))).
 -define (MAYBE_UNDEFINED(V), be_block_handler:maybe_undefined((V))).

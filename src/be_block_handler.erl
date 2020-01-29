@@ -3,15 +3,20 @@
 -include("be_block_handler.hrl").
 
 -callback init(epgsql:connection()) -> {ok, State::any()}.
--callback load(Hash::binary(), blockchain:block(), blockchain_ledger_v1:ledger(), State::any()) -> {ok, non_neg_integer(), NewState::any()}.
+-callback load(Conn::epgsql:connection(),
+               Hash::binary(),
+               blockchain:block(),
+               Sync::boolean(),
+               blockchain_ledger_v1:ledger(),
+               State::any()) -> {ok, non_neg_integer(), NewState::any()}.
 
 -type query() :: {Stmt::epgsql:statement(), Params::[any()]}.
 -export_type([query/0]).
 
 -export([run_queries/3, maybe_undefined/1, maybe_fn/2, maybe_b64/1, maybe_b58/1, maybe_h3/1]).
 
--spec run_queries([query()], epgsql:connection(), State::any()) -> {ok, QueryCount::non_neg_integer(), State::any()}.
-run_queries(Queries, Conn, State) ->
+-spec run_queries(epgsql:connection(), [query()], State::any()) -> {ok, QueryCount::non_neg_integer(), State::any()}.
+run_queries(Conn, Queries, State) ->
     Results = epgsql:execute_batch(Conn, Queries),
     %% Find any errors and throw an error
     %% to alloow roll back

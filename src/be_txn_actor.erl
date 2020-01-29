@@ -1,30 +1,46 @@
 -module(be_txn_actor).
 
 -include("be_block_handler.hrl").
+
+-behavior(be_db_worker).
 -behavior(be_block_handler).
 
--export([init/1, load/4, to_actors/1]).
+%% be_db_worker
+-export([prepare_conn/1]).
+%% be_block_handler
+-export([init/1, load/6, to_actors/1]).
 
 -define(Q_INSERT_ACTOR, "insert_actor").
 
 -record(state,
        {
-        conn :: epgsql:connection(),
         s_insert_actor :: epgsql:statement()
        }).
 
-init(Conn) ->
-    {ok, InsertActor} =
+%%
+%% be_db_worker
+%%
+
+prepare_conn(Conn) ->
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_ACTOR,
                      "insert into transaction_actors (actor, actor_role, transaction_hash) values ($1, $2, $3)", []),
+
+    ok.
+
+%%
+%% be_block_handler
+%%
+
+init(Conn) ->
+    {ok, InsertActor} = epgsql:describe(Conn, statement, ?Q_INSERT_ACTOR),
     {ok, #state{
-            conn = Conn,
             s_insert_actor = InsertActor
            }}.
 
-load(_Hash, Block, _Ledger, State=#state{}) ->
+load(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
     Queries = q_insert_transaction_actors(Block, [], State),
-    be_block_handler:run_queries(Queries, State#state.conn, State).
+    be_block_handler:run_queries(Conn, Queries, State).
 
 q_insert_transaction_actors(Block, Query, #state{s_insert_actor=Stmt}) ->
     Txns = blockchain_block_v1:transactions(Block),

@@ -19,7 +19,9 @@
      telemetry,
      psql_migration,
      envloader,
-     clique
+     clique,
+     recon,
+     poolboy
     ]
    },
    {included_applications, [blockchain]},

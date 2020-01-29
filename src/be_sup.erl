@@ -1,5 +1,7 @@
 -module(be_sup).
 
+-include("be_db_worker.hrl").
+
 -behaviour(supervisor).
 
 %% API
@@ -72,8 +74,22 @@ init([]) ->
                       {base_dir, BaseDir}
                      ],
 
+    {ok, DBOpts} = psql_migration:connection_opts([]),
+    {ok, PoolArgs} = application:get_env(blockchain_etl, db_pool),
+    {ok, DBHandlers} = application:get_env(blockchain_etl, db_handlers),
+
     {ok, {SupFlags,
           [
            ?SUP(blockchain_sup, [BlockchainOpts]),
-           ?WORKER(be_follower, [])
+           poolboy:child_spec(?DB_POOL,
+                              [
+                               {name, {local, ?DB_POOL}},
+                               {worker_module, be_db_worker}
+                              ] ++ PoolArgs,
+                              [
+                               {db_opts, DBOpts},
+                               {db_handlers, DBHandlers}
+                              ]),
+           ?WORKER(be_follower, []),
+           ?WORKER(be_pending_txn_worker, [])
           ]}}.
