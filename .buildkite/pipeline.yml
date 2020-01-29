@@ -9,9 +9,6 @@ steps:
 
   - label: ":debian: build deb"
     commands:
-      - "git checkout ${BUILDKITE_TAG}"
-      - "make ci"
-      #- "make test"
       - "make release"
       - ".buildkite/scripts/make_deb.sh"
     key: "deb"
