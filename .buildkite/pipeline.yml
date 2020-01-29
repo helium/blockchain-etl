@@ -1,6 +1,35 @@
 steps:
-  - commands:
+  - label: ":hammer: running tests"
+    commands:
       - "make ci"
-    name: ":hammer: build"
+        #- "make test" #currently no ct defined, causes build error
+    key: "tests"
+    agents:
+      queue: "erlang"
+
+  - wait
+
+  - label: ":debian: build deb"
+    commands:
+      - "git checkout ${BUILDKITE_TAG}"
+      - "make ci"
+      #- "make test"
+      - "make release"
+      - ".buildkite/scripts/make_deb.sh"
+    key: "deb"
+    if: build.tag != null
+    depends_on: "tests"
+    agents:
+      queue: "erlang"
+
+  - wait
+
+  - label: "upload"
+    name: ":cloud: upload to packagecloud"
+    commands:
+      - ".buildkite/scripts/packagecloud_upload.sh"
+    env:
+      PACKAGECLOUD_API_KEY
+    depends_on: "deb"
     agents:
       queue: "erlang"
