@@ -7,8 +7,6 @@ steps:
     agents:
       queue: "erlang"
 
-  - wait
-
   - label: ":debian: build deb"
     commands:
       - "git checkout ${BUILDKITE_TAG}"
@@ -21,8 +19,6 @@ steps:
     depends_on: "tests"
     agents:
       queue: "erlang"
-
-  - wait
 
   - label: "upload"
     name: ":cloud: upload to packagecloud"
