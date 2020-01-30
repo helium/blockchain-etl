@@ -23,8 +23,6 @@ steps:
     commands:
       - ".buildkite/scripts/packagecloud_upload.sh"
     if: build.tag != null
-    env:
-      PACKAGECLOUD_API_KEY
     depends_on: "deb"
     agents:
       queue: "erlang"
