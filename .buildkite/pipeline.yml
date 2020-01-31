@@ -13,6 +13,7 @@ steps:
       - "make release"
       - ".buildkite/scripts/make_deb.sh"
     key: "deb"
+    artifact_paths: "*.deb"
     if: build.tag != null
     depends_on: "tests"
     agents:
@@ -21,6 +22,7 @@ steps:
   - label: "upload"
     name: ":cloud: upload to packagecloud"
     commands:
+      - "git fetch -t"
       - ".buildkite/scripts/packagecloud_upload.sh"
     if: build.tag != null
     depends_on: "deb"
