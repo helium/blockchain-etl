@@ -3,9 +3,8 @@ FROM ubuntu:18.04
 EXPOSE 8080
 EXPOSE 44158
 
-COPY blockchain-etl*.deb
-RUN dpkg -i blockchain-etl*.deb
-RUN rm -f blockchain-etl*.deb
+COPY blockchain-etl*.deb /tmp
+RUN dpkg -i /tmp/blockchain-etl*.deb
+RUN rm -f /tmp/blockchain-etl*.deb
 
-CMD /var/helium/bin/blockchain-etl foreground
-
+CMD /var/helium/blockchain_etl/bin/blockchain_etl foreground
