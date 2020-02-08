@@ -58,6 +58,7 @@ CREATE TABLE transactions (
 );
 
 CREATE INDEX transaction_type_idx on transactions(type);
+CREATE INDEX transaction_block_idx on transactions(block);
 
 CREATE TYPE transaction_actor_role as ENUM (
        'payee',
