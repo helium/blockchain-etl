@@ -1,11 +1,15 @@
 -module(be_block).
 
+-behavior(be_db_worker).
 -behavior(be_block_handler).
 
 -include("be_block_handler.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
--export([init/1, load/4]).
+%% be_db_worker
+-export([prepare_conn/1]).
+%% be_block_handler
+-export([init/1, load/6]).
 
 -define(Q_INSERT_BLOCK, "insert_block").
 -define(Q_INSERT_BLOCK_SIG, "insert_block_signature").
@@ -13,7 +17,6 @@
 
 -record(state,
        {
-        conn :: epgsql:connection(),
         height :: non_neg_integer(),
 
         base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
@@ -22,36 +25,51 @@
         s_insert_block_sig :: epgsql:statement()
        }).
 
-init(Conn) ->
-    {ok, InsertBlock} =
+%%
+%% be_db_worker
+%%
+
+prepare_conn(Conn) ->
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK,
                      "insert into blocks (height, time, timestamp, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
-    {ok, InsertBlockSig} =
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_BLOCK_SIG,
                      "insert into block_signatures (block, signer, signature) values ($1, $2, $3)", []),
-    {ok, InsertTxn} =
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_TXN,
                      "insert into transactions (block, hash, type, fields) values ($1, $2, $3, $4)", []),
+
+    ok.
+
+%%
+%% be_block_handler
+%%
+
+init(Conn) ->
+    {ok, InsertBlock} = epgsql:describe(Conn, statement, ?Q_INSERT_BLOCK),
+    {ok, InsertBlockSig} = epgsql:describe(Conn, statement, ?Q_INSERT_BLOCK_SIG),
+    {ok, InsertTxn} = epgsql:describe(Conn, statement, ?Q_INSERT_TXN),
+
     {ok, _, [{HeightStr}]} = epgsql:squery(Conn, "select max(height) from blocks"),
     Height = case HeightStr of
                  null -> 0;
                  _ -> binary_to_integer(HeightStr)
              end,
     {ok, #state{
-            conn = Conn,
             height = Height,
             s_insert_block = InsertBlock,
             s_insert_block_sig = InsertBlockSig,
             s_insert_txn = InsertTxn
            }}.
 
-load(Hash, Block, Ledger, State=#state{}) ->
+load(Conn, Hash, Block, _Sync, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     ?assertEqual(BlockHeight, State#state.height + 1,
                  "New block must line up with stored height"),
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
-    be_block_handler:run_queries(BlockQueries, State#state.conn, State#state{height=BlockHeight}).
+    be_block_handler:run_queries(Conn, BlockQueries, State#state{height=BlockHeight}).
 
 q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt, base_secs=BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),

@@ -2,8 +2,11 @@
 
 -include("be_block_handler.hrl").
 
--export([init/1, load/4]).
+-export([prepare_conn/1]).
+%% be_block_handler
+-export([init/1, load/6]).
 
+-behavior(be_db_worker).
 -behavior(be_block_handler).
 
 -type gateway_cache() :: #{libp2p_crypto:pubkey_bin() => binary()}.
@@ -12,7 +15,6 @@
 
 -record(state,
        {
-        conn :: epgsql:connection(),
         s_insert_gateawy :: epgsql:statement(),
 
         gateways=#{} :: gateway_cache(),
@@ -24,20 +26,32 @@
 -define(Q_REFRESH_GATEWAY_LEDGER, "refresh materialized view gateway_ledger").
 -define(Q_REFRESH_ASYNC_GATEWAY_LEDGER, "refresh materialized view concurrently gateway_ledger").
 
-init(Conn) ->
-    {ok, InsertGateway} =
+%%
+%% be_db_worker
+%%
+
+prepare_conn(Conn) ->
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_GATEWAY,
                      "insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);", []),
+
+    ok.
+
+%%
+%% be_block_handler
+%%
+
+init(Conn) ->
+    {ok, InsertGateway} = epgsql:describe(Conn, statement, ?Q_INSERT_GATEWAY),
 
     lager:info("Updating gateway_ledger table"),
     {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_GATEWAY_LEDGER),
 
-    {ok, init_gateway_cache(#state{
-                               conn=Conn,
-                               s_insert_gateawy=InsertGateway
-                              })}.
+    {ok, init_gateway_cache(Conn, #state{
+                                     s_insert_gateawy=InsertGateway
+                                    })}.
 
-load(_Hash, Block, Ledger, State=#state{}) ->
+load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     Active = blockchain_ledger_v1:active_gateways(Ledger),
     BlockHeight = blockchain_block_v1:height(Block),
     {Queries, Hashes} =
@@ -52,13 +66,11 @@ load(_Hash, Block, Ledger, State=#state{}) ->
                                   {NewQueries, Hashes#{Key => NewHash}}
                           end
                   end, {[], State#state.gateways}, Active),
-    maybe_refresh_gateway_ledger(be_block_handler:run_queries(Queries,
-                                                              State#state.conn,
-                                                              State#state{gateways=Hashes})).
+    maybe_refresh_gateway_ledger(Conn, be_block_handler:run_queries(Conn, Queries, State#state{gateways=Hashes})).
 
-maybe_refresh_gateway_ledger({ok, 0, State=#state{}}) ->
+maybe_refresh_gateway_ledger(_Conn, {ok, 0, State=#state{}}) ->
     {ok, 0, State};
-maybe_refresh_gateway_ledger({ok, Count, State=#state{conn=Conn}}) ->
+maybe_refresh_gateway_ledger(Conn, {ok, Count, State=#state{}}) ->
     case erlang:system_time(seconds) - State#state.last_gateway_ledger_refresh
         > State#state.gateway_ledger_refresh_secs of
         true ->
@@ -102,8 +114,8 @@ witness_to_json(Witness) ->
 %% Gateway Cache
 %%
 
--spec init_gateway_cache(#state{}) -> #state{}.
-init_gateway_cache(State=#state{conn=Conn}) ->
+-spec init_gateway_cache(epgsql:connection(), #state{}) -> #state{}.
+init_gateway_cache(Conn, State=#state{}) ->
     lager:info("Constructing gateway cache"),
     {ok, _, GWList} =
         epgsql:equery(Conn,

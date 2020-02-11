@@ -2,15 +2,18 @@
 
 -include("be_block_handler.hrl").
 
+-behavior(be_db_worker).
 -behavior(be_block_handler).
 
--export([init/1, load/4]).
+%% be_db_worker
+-export([prepare_conn/1]).
+%% be_block_handler
+-export([init/1, load/6]).
 
 -define(ACCOUNT_LEDGER_REFRESH_SECS, 30).
 
 -record(state,
        {
-        conn :: epgsql:connection(),
         base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
         s_insert_account :: epgsql:statement(),
 
@@ -32,20 +35,32 @@
 -define(Q_INSERT_ACCOUNT, "insert_account").
 -define(Q_REFRESH_ASYNC_ACCOUNT_LEDGER, "refresh materialized view concurrently account_ledger").
 
-init(Conn) ->
-    {ok, InsertAccount} =
+%%
+%% be_db_worker
+%%
+
+prepare_conn(Conn) ->
+    {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_ACCOUNT,
                      "insert into accounts (block, timestamp, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", []),
+    ok.
+
+
+%%
+%% be_block_handler
+%%
+
+init(Conn) ->
+    {ok, InsertAccount} = epgsql:describe(Conn, statement, ?Q_INSERT_ACCOUNT),
 
     lager:info("Updating account_ledger table concurrently"),
     {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
 
     {ok, #state{
-            conn = Conn,
             s_insert_account = InsertAccount
            }}.
 
-load(_Hash, Block, Ledger, State=#state{}) ->
+load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     Txns = blockchain_block_v1:transactions(Block),
     %% Fetch actor keys that relate to accounts from each transaction's actors
     AccountsFromActors = fun(Actors) ->
@@ -70,11 +85,11 @@ load(_Hash, Block, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     BlockTime = blockchain_block_v1:time(Block),
     Queries = [q_insert_account(BlockHeight, BlockTime, A, State) || A <- maps:values(Accounts)],
-    maybe_refresh_account_ledger(be_block_handler:run_queries(Queries, State#state.conn, State)).
+    maybe_refresh_account_ledger(Conn, be_block_handler:run_queries(Conn, Queries, State)).
 
-maybe_refresh_account_ledger({ok, 0, State=#state{}}) ->
+maybe_refresh_account_ledger(_Conn, {ok, 0, State=#state{}}) ->
     {ok, 0, State};
-maybe_refresh_account_ledger({ok, Count, State=#state{conn=Conn}}) ->
+maybe_refresh_account_ledger(Conn, {ok, Count, State=#state{}}) ->
     case erlang:system_time(seconds) - State#state.last_account_ledger_refresh
         > State#state.account_ledger_refresh_secs of
         true ->
