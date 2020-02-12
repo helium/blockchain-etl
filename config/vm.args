@@ -1,4 +1,4 @@
--sname blockchain_etl
+-sname blockchain_etl@127.0.0.1
 
 -setcookie blockchain_etl_cookie
 
