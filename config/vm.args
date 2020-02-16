@@ -1,6 +1,5 @@
--sname blockchain_etl@127.0.0.1
+-name {{release_name}}@127.0.0.1
+-setcookie {{release_name}}
 
--setcookie blockchain_etl_cookie
-
-+K true
-+A30
++c true
++C multi_time_warp
