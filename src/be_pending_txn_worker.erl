@@ -23,7 +23,7 @@
 -define(S_PENDING_TXN_FAIL, "worker_pending_txn_fail").
 -define(S_PENDING_TXN_PENDING, "worker_pending_txn_pending").
 
--define(SELECT_PENDING_TXN_BASE, "select t.data from pending_transactions t ").
+-define(SELECT_PENDING_TXN_BASE, "select t.hash, t.data from pending_transactions t ").
 
 prepare_conn(Conn) ->
     {ok, _} =
@@ -40,11 +40,11 @@ prepare_conn(Conn) ->
 
     {ok, _} =
         epgsql:parse(Conn, ?S_PENDING_TXN_FAIL,
-                     "UPDATE pending_transactions SET status = 'failed', failed_reason = $2 WHERE created_at = $1", []),
+                     "UPDATE pending_transactions SET status = 'failed', failed_reason = $2 WHERE hash = $1", []),
 
     {ok, _} =
         epgsql:parse(Conn, ?S_PENDING_TXN_PENDING,
-                     "UPDATE pending_transactions SET status = 'pending', failed_reason = '' WHERE created_at = $1", []),
+                     "UPDATE pending_transactions SET status = 'pending', failed_reason = '' WHERE hash = $1", []),
     ok.
 
 %%
@@ -103,7 +103,12 @@ handle_info(Info, State) ->
 -spec get_pending_txns(string()) -> {ok, [{blockchain_txn:hash(), blockchain_core_txn:txn()}]}.
 get_pending_txns(Stmt) ->
     {ok, _, Results} = ?PREPARED_QUERY(Stmt, []),
-    {ok, lists:map(fun(BinTxn) ->
-                           Txn = blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb),
-                           {blockchain_txn:hash(Txn), Txn}
-                   end, Results)}.
+    {ok, lists:foldl(fun({Hash, BinTxn}, Acc) ->
+                           case catch blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb) of
+                               {'EXIT', _} ->
+                                   ?PREPARED_QUERY(?S_PENDING_TXN_FAIL, [Hash, "decoding_failure"]),
+                                   Acc;
+                               Txn ->
+                                   [{Hash, blockchain_txn:unwrap_txn(Txn)} | Acc]
+                           end
+                     end, [], lists:reverse(Results))}.

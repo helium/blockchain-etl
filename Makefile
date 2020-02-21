@@ -53,5 +53,9 @@ reset: stop
 	rm -rf ./_build/default/rel/blockchain_etl/log/*
 	_build/default/bin/psql_migration reset
 
+resync: stop
+	rm -rf ./_build/default/rel/blockchain_etl/data/ledger.db
+	rm -rf ./_build/default/rel/blockchain_etl/log/*
+
 console:
 	./_build/default/rel/blockchain_etl/bin/blockchain_etl remote_console
