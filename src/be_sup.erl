@@ -36,7 +36,7 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 init([]) ->
-    SupFlags = #{strategy => rest_for_one,
+    SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1},
     SeedNodes =
