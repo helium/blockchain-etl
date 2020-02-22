@@ -23,7 +23,6 @@
        }).
 
 -define(Q_INSERT_GATEWAY, "insert_gateway").
--define(Q_REFRESH_GATEWAY_LEDGER, "refresh materialized view gateway_ledger").
 -define(Q_REFRESH_ASYNC_GATEWAY_LEDGER, "refresh materialized view concurrently gateway_ledger").
 
 %%
@@ -45,10 +44,11 @@ init(Conn) ->
     {ok, InsertGateway} = epgsql:describe(Conn, statement, ?Q_INSERT_GATEWAY),
 
     lager:info("Updating gateway_ledger table"),
-    {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_GATEWAY_LEDGER),
+    {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_GATEWAY_LEDGER),
 
     {ok, init_gateway_cache(Conn, #state{
-                                     s_insert_gateawy=InsertGateway
+                                     s_insert_gateawy=InsertGateway,
+                                     last_gateway_ledger_refresh=erlang:system_time(seconds)
                                     })}.
 
 load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
