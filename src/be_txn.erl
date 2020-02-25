@@ -75,14 +75,14 @@ to_json(blockchain_txn_routing_v1, T, _Ledger) ->
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_routing_v1:signature(T)) };
 to_json(blockchain_txn_payment_v1, T, _Ledger) ->
     #{<<"payer">> => ?BIN_TO_B58(blockchain_txn_payment_v1:payer(T)),
-      <<"payeee">> => ?BIN_TO_B58(blockchain_txn_payment_v1:payee(T)),
+      <<"payee">> => ?BIN_TO_B58(blockchain_txn_payment_v1:payee(T)),
       <<"amount">> => blockchain_txn_payment_v1:amount(T),
       <<"fee" >> => blockchain_txn_payment_v1:fee(T),
       <<"nonce">> => blockchain_txn_payment_v1:nonce(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_payment_v1:signature(T)) };
 to_json(blockchain_txn_security_exchange_v1, T, _Ledger) ->
     #{<<"payer">> => ?BIN_TO_B58(blockchain_txn_security_exchange_v1:payer(T)),
-      <<"payeee">> => ?BIN_TO_B58(blockchain_txn_security_exchange_v1:payee(T)),
+      <<"payee">> => ?BIN_TO_B58(blockchain_txn_security_exchange_v1:payee(T)),
       <<"amount">> => blockchain_txn_security_exchange_v1:amount(T),
       <<"fee" >> => blockchain_txn_security_exchange_v1:fee(T),
       <<"nonce">> => blockchain_txn_security_exchange_v1:nonce(T),
