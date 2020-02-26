@@ -31,6 +31,15 @@ listening for new block events.
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
 
+### Installing Ubuntu Required Packages
+
+If running on Ubuntu, you will need the following packages installed before
+running `make release`:
+
+```bash
+sudo apt install erlang cmake libsodium-dev libssl-dev
+```
+
 ## WARNING
 
 Schema changes _will_ happen in this repo as we flesh out the
