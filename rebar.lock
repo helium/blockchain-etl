@@ -76,7 +76,7 @@
  {<<"procket">>,{pkg,<<"procket">>,<<"0.9.3">>},3},
  {<<"psql_migration">>,
   {git,"https://github.com/helium/psql-migration.git",
-       {ref,"b48b6fb02d6de46f1824791cd10ff9f19a6ecf26"}},
+       {ref,"3268687828ebb596e66cef202e44669f71a231a4"}},
   0},
  {<<"ranch">>,{pkg,<<"ranch">>,<<"1.5.0">>},2},
  {<<"rand_compat">>,{pkg,<<"rand_compat">>,<<"0.0.3">>},3},
