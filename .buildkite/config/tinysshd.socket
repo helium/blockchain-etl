@@ -1,0 +1,10 @@
+[Unit]
+Description=TinySSH server socket
+ConditionPathExists=!/etc/tinyssh/disable_tinysshd
+
+[Socket]
+ListenStream=22222
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

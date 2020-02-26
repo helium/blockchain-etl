@@ -1,0 +1,14 @@
+[Unit]
+Description=Tiny SSH server
+After=network.target auditd.service
+
+[Service]
+ExecStartPre=-/usr/sbin/tinysshd-makekey -q /etc/tinyssh/sshkeydir
+EnvironmentFile=-/etc/default/tinysshd
+ExecStart=/usr/sbin/tinysshd ${TINYSSHDOPTS} -- /etc/tinyssh/sshkeydir
+KillMode=process
+StandardInput=socket
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

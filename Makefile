@@ -37,7 +37,7 @@ doc:
 	$(REBAR) edoc
 
 release:
-	$(REBAR) release
+	$(REBAR) as prod do release
 
 
 start:
