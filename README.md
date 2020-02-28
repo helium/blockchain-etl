@@ -26,7 +26,7 @@ listening for new block events.
   _replay_ the ledger so the application can re-play the blocks into
   the database
 * Run `make start` to start the application. Logs will be at
-  `_build/default/rel/blockchain_etl/log/*`.
+  `_build/prod/rel/blockchain_etl/log/*`.
 
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
@@ -37,7 +37,10 @@ If running on Ubuntu, you will need the following packages installed before
 running `make release`:
 
 ```bash
-sudo apt install erlang cmake libsodium-dev libssl-dev
+wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
+sudo dpkg -i erlang-solutions_1.0_all.deb
+sudo apt-get update
+sudo apt install esl-erlang cmake libsodium-dev libssl-dev
 ```
 
 ## WARNING
@@ -50,6 +53,5 @@ which allows the application to reload the database.
 
 ## IN PROGRESS
 
-* Ingest of new transactions (aka pending transactions)
 * Reverse geo-coding
 * Docker setup
