@@ -36,6 +36,8 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 init([]) ->
+    erlang:system_flag(fullsweep_after, 200),
+
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1},
