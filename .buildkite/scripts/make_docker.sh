@@ -13,8 +13,8 @@ docker build -t helium:$DOCKER_NAME -f .buildkite/scripts/Dockerfile .
 docker tag helium:$DOCKER_NAME "$DEV_ECS_REGISTRY_NAME:$DOCKER_NAME"
 docker tag helium:$DOCKER_NAME "$PROD_ECS_REGISTRY_NAME:$DOCKER_NAME"
 
-$(aws ecr get-login --no-include-email --region us-west-2 --registry-ids 217417705465)
+aws ecr get-login-password | docker login --username AWS --password-stdin 217417705465.dkr.ecr.us-west-2.amazonaws.com
 docker push "$DEV_ECS_REGISTRY_NAME:$DOCKER_NAME"
 
-$(aws ecr get-login --no-include-email --region us-west-2 --registry-ids 350169207474)
+aws ecr get-login-password | docker login --username AWS --password-stdin 350169207474.dkr.ecr.us-west-2.amazonaws.com
 docker push "$PROD_ECS_REGISTRY_NAME:$DOCKER_NAME"
