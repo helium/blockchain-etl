@@ -18,10 +18,10 @@
 %%
 
 -define(S_PENDING_TXN_LIST_INIT, "worker_pending_txn_list_init").
--define(S_PENDING_TXN_LIST_PENDING, "worker_pending_txn_list_pending").
+-define(S_PENDING_TXN_LIST_RECEIVED, "worker_pending_txn_list_received").
 -define(S_PENDING_TXN_DELETE, "worker_pending_txn_delete").
 -define(S_PENDING_TXN_FAIL, "worker_pending_txn_fail").
--define(S_PENDING_TXN_PENDING, "worker_pending_txn_pending").
+-define(S_PENDING_TXN_SET_PENDING, "worker_pending_txn_set_pending").
 
 -define(SELECT_PENDING_TXN_BASE, "select t.hash, t.data from pending_transactions t ").
 
@@ -31,8 +31,8 @@ prepare_conn(Conn) ->
                      ?SELECT_PENDING_TXN_BASE "where t.status in ('received', 'pending') order by created_at", []),
 
     {ok, _} =
-        epgsql:parse(Conn, ?S_PENDING_TXN_LIST_PENDING,
-                     ?SELECT_PENDING_TXN_BASE "where t.status = 'pending' order by created_at", []),
+        epgsql:parse(Conn, ?S_PENDING_TXN_LIST_RECEIVED,
+                     ?SELECT_PENDING_TXN_BASE "where t.status = 'received' order by created_at", []),
 
     {ok, _} =
         epgsql:parse(Conn, ?S_PENDING_TXN_DELETE,
@@ -43,7 +43,7 @@ prepare_conn(Conn) ->
                      "UPDATE pending_transactions SET status = 'failed', failed_reason = $2 WHERE hash = $1", []),
 
     {ok, _} =
-        epgsql:parse(Conn, ?S_PENDING_TXN_PENDING,
+        epgsql:parse(Conn, ?S_PENDING_TXN_SET_PENDING,
                      "UPDATE pending_transactions SET status = 'pending', failed_reason = '' WHERE hash = $1", []),
     ok.
 
@@ -81,10 +81,10 @@ handle_info({submit_pending, Stmt}, State) ->
                                                        fun(Res) ->
                                                                Parent ! {pending_result, Key, Res}
                                                        end),
-                          {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_PENDING, [Key])
+                          {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_SET_PENDING, [Key])
                   end, PendingTxns),
     PendingTime = application:get_env(blockchain_etl, pending_interval, 10000),
-    erlang:send_after(PendingTime, self(), {submit_pending, ?S_PENDING_TXN_LIST_PENDING}),
+    erlang:send_after(PendingTime, self(), {submit_pending, ?S_PENDING_TXN_LIST_RECEIVED}),
     {noreply, State};
 handle_info({pending_result, Key, ok}, State) ->
     {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_DELETE, [Key]),
