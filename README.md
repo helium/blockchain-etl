@@ -53,5 +53,4 @@ which allows the application to reload the database.
 
 ## IN PROGRESS
 
-* Reverse geo-coding
 * Docker setup
