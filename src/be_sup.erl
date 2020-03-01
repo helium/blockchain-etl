@@ -92,4 +92,5 @@ init([]) ->
                               ]),
            ?WORKER(be_follower, []),
            ?WORKER(be_pending_txn_worker, [])
+           ?WORKER(be_geocoder, [])
           ]}}.
