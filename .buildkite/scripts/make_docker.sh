@@ -9,7 +9,7 @@ DOCKER_NAME="$(basename $(pwd))_${BUILDKITE_TAG}"
 
 buildkite-agent artifact download $DEB_PKG .
 
-docker build -t helium:$DOCKER_NAME -f .buildkite/scripts/Dockerfile .
+docker build -t helium:$DOCKER_NAME -f .buildkite/Dockerfile .
 docker tag helium:$DOCKER_NAME "$DEV_ECS_REGISTRY_NAME:$DOCKER_NAME"
 docker tag helium:$DOCKER_NAME "$PROD_ECS_REGISTRY_NAME:$DOCKER_NAME"
 
