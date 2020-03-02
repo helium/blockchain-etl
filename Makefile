@@ -37,21 +37,21 @@ doc:
 	$(REBAR) edoc
 
 release:
-	$(REBAR) as prod do release
-
+	$(REBAR) as prod release -n blockchain_etl
 
 start:
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	./_build/prod/rel/blockchain_etl/bin/blockchain_etl start
 
 stop:
-	-./_build/prod/rel/blockchain_etl/bin/blockchain_etl stop
+	./_build/prod/rel/blockchain_etl/bin/blockchain_etl stop
 
 reset: stop
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
 	rm -rf ./_build/prod/rel/blockchain_etl/log/*
-	_build/prod/bin/psql_migration reset
+	# _build/prod/bin/psql_migration reset
+	./_build/prod/rel/blockchain_etl/bin/extensions/psql_migration reset
 
 resync: stop
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
