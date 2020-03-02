@@ -45,7 +45,8 @@ CREATE TYPE transaction_type as ENUM (
         'rewards_v1',
         'token_burn_v1',
         'dc_coinbase_v1',
-        'token_burn_exchange_rate_v1'
+        'token_burn_exchange_rate_v1',
+        'state_channel_open_v1'
 );
 
 CREATE TABLE transactions (

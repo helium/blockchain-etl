@@ -41,7 +41,10 @@ to_type(blockchain_txn_token_burn_v1) ->
 to_type(blockchain_txn_dc_coinbase_v1) ->
     "dc_coinbase_v1";
 to_type(blockchain_txn_token_burn_exchange_rate_v1) ->
-    "token_burn_exchange_rate_v1".
+    "token_burn_exchange_rate_v1";
+to_type(blockchain_txn_state_channel_open_v1) ->
+    "blockchain_txn_state_channel_open_v1".
+
 
 to_json(T, Ledger) ->
     to_json(blockchain_txn:type(T), T, Ledger).
@@ -201,4 +204,12 @@ to_json(blockchain_txn_dc_coinbase_v1, T, _Ledger) ->
     #{ <<"payee">> => ?BIN_TO_B58(blockchain_txn_dc_coinbase_v1:payee(T)),
        <<"amount">> => blockchain_txn_dc_coinbase_v1:amount(T) };
 to_json(blockchain_txn_token_burn_exchange_rate_v1, T, _Ledger) ->
-    #{<<"rate">> => blockchain_txn_token_burn_exchange_rate_v1:rate(T) }.
+    #{<<"rate">> => blockchain_txn_token_burn_exchange_rate_v1:rate(T) };
+to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
+    #{<<"owner">> => ?BIN_TO_B58(blockchain_txn_state_channel_open_v1:owner(T)),
+      <<"amount">> => blockchain_txn_state_channel_open_v1:amount(T),
+      <<"fee" >> => blockchain_txn_state_channel_open_v1:fee(T),
+      <<"nonce">> => blockchain_txn_state_channel_open_v1:nonce(T),
+      <<"expire_within">> => blockchain_txn_state_channel_open_v1:expire_within(T),
+      <<"id">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:id(T)),
+      <<"signature">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:signature(T)) }.
