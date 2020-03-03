@@ -125,4 +125,8 @@ to_actors(blockchain_txn_token_burn_v1, T) ->
 to_actors(blockchain_txn_dc_coinbase_v1, T) ->
     [{"payee", blockchain_txn_dc_coinbase_v1:payee(T)} ];
 to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T) ->
-    [].
+    [];
+to_actors(blockchain_txn_state_channel_open_v1, T) ->
+    [{"owner", blockchain_txn_state_channel_open_v1:owner(T)} ];
+to_actors(blockchain_txn_state_channel_close_v1, T) ->
+    [{"closer", blockchain_txn_state_channel_close_v1:closer(T)} ].
