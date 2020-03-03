@@ -39,13 +39,21 @@ doc:
 release:
 	$(REBAR) as prod do release
 
+devrelease:
+	$(REBAR) as dev do release
 
 start:
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	./_build/prod/rel/blockchain_etl/bin/blockchain_etl start
 
+devstart:
+	cp -f .env ./_build/dev/rel/blockchain_etl/
+	./_build/dev/rel/blockchain_etl/bin/blockchain_etl start
+
 stop:
 	-./_build/prod/rel/blockchain_etl/bin/blockchain_etl stop
+devstop:
+	-./_build/dev/rel/blockchain_etl/bin/blockchain_etl stop
 
 reset: stop
 	cp -f .env ./_build/prod/rel/blockchain_etl/
@@ -53,9 +61,18 @@ reset: stop
 	rm -rf ./_build/prod/rel/blockchain_etl/log/*
 	_build/prod/rel/blockchain_etl/bin/psql_migration reset
 
+devreset: devstop
+	cp -f .env ./_build/dev/rel/blockchain_etl/
+	rm -rf ./_build/dev/rel/blockchain_etl/data/ledger.db
+	rm -rf ./_build/dev/rel/blockchain_etl/log/*
+	_build/dev/rel/blockchain_etl/bin/psql_migration reset
+
 resync: stop
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
 	rm -rf ./_build/prod/rel/blockchain_etl/log/*
+devresync: devstop
+	rm -rf ./_build/dev/rel/blockchain_etl/data/ledger.db
+	rm -rf ./_build/dev/rel/blockchain_etl/log/*
 
 console:
 	./_build/prod/rel/blockchain_etl/bin/blockchain_etl remote_console
