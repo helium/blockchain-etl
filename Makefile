@@ -51,7 +51,7 @@ reset: stop
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
 	rm -rf ./_build/prod/rel/blockchain_etl/log/*
-	_build/prod/bin/psql_migration reset
+	_build/prod/rel/blockchain_etl/bin/psql_migration reset
 
 resync: stop
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
