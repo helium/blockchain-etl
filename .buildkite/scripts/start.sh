@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# Start TinySSH listener on port 22222
+/usr/bin/tcpserver -HRDl0 0.0.0.0 22222 /usr/sbin/tinysshd -v /etc/tinyssh/sshkeydir &
+
 /var/helium/blockchain_etl/bin/blockchain_etl escript \
     bin/psql_migration setup
 sleep 1
