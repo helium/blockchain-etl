@@ -191,9 +191,7 @@ to_json(blockchain_txn_rewards_v1, T, _Ledger) ->
        <<"end_epoch">> => blockchain_txn_rewards_v1:end_epoch(T),
        <<"rewards">> => [RewardJson(R) || R <- blockchain_txn_rewards_v1:rewards(T)] };
 to_json(blockchain_txn_token_burn_v1, T, _Ledger) ->
-    #{<<"type">> => blockchain_txn_token_burn_v1:type(T),
-      <<"payer">> => ?BIN_TO_B58(blockchain_txn_token_burn_v1:payer(T)),
-      <<"key">> => ?MAYBE_B58(blockchain_txn_token_burn_v1:key(T)),
+    #{<<"payer">> => ?BIN_TO_B58(blockchain_txn_token_burn_v1:payer(T)),
       <<"amount">> => blockchain_txn_token_burn_v1:amount(T),
       <<"nonce">> => blockchain_txn_token_burn_v1:nonce(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_token_burn_v1:signature(T)) };
