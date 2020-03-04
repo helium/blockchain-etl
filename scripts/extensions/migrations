@@ -1,0 +1,5 @@
+#!/bin/sh
+
+LIB_DIR=$ROOTDIR/lib
+
+exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
