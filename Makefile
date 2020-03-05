@@ -39,6 +39,8 @@ doc:
 release:
 	$(REBAR) as prod do release
 
+devrelease:
+	$(REBAR) as dev do release
 
 start:
 	cp -f .env ./_build/prod/rel/blockchain_etl/
@@ -51,7 +53,7 @@ reset: stop
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
 	rm -rf ./_build/prod/rel/blockchain_etl/log/*
-	_build/prod/bin/psql_migration reset
+	_build/prod/rel/blockchain_etl/bin/blockchain_etl migrations reset
 
 resync: stop
 	rm -rf ./_build/prod/rel/blockchain_etl/data/ledger.db
