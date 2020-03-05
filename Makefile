@@ -39,9 +39,6 @@ doc:
 release:
 	$(REBAR) as prod do release
 
-devrelease:
-	$(REBAR) as dev do release
-
 start:
 	cp -f .env ./_build/prod/rel/blockchain_etl/
 	./_build/prod/rel/blockchain_etl/bin/blockchain_etl start
