@@ -120,6 +120,7 @@ to_json(blockchain_txn_create_htlc_v1, T, _Ledger) ->
       <<"timelock">> => blockchain_txn_create_htlc_v1:timelock(T),
       <<"amount">> => blockchain_txn_create_htlc_v1:amount(T),
       <<"fee">> => blockchain_txn_create_htlc_v1:fee(T),
+      <<"nonce">> => blockchain_txn_create_htlc_v1:nonce(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_create_htlc_v1:signature(T)) };
 to_json(blockchain_txn_redeem_htlc_v1, T, _Ledger) ->
     #{<<"payee">> => ?BIN_TO_B58(blockchain_txn_redeem_htlc_v1:payee(T)),
