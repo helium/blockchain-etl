@@ -26,7 +26,7 @@ listening for new block events.
   _replay_ the ledger so the application can re-play the blocks into
   the database
 * Run `make start` to start the application. Logs will be at
-  `_build/prod/rel/blockchain_etl/log/*`.
+  `_build/dev/rel/blockchain_etl/log/*`.
 
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
