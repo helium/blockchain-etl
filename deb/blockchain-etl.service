@@ -1,0 +1,12 @@
+[Unit]
+Description=Blockchain ETL application
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/var/helium/blockchain_etl/bin/blockchain_etl start
+ExecStop=/var/helium/blockchain_etl/bin/blockchain_etl stop
+PIDfile=blockchain_etl.pid
+
+[Install]
+WantedBy=multi-user.target
