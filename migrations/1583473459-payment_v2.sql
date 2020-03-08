@@ -33,6 +33,7 @@ CREATE TYPE transaction_type as ENUM (
 
 -- update the column to use the new type
 ALTER TABLE transactions ALTER COLUMN type TYPE transaction_type USING type::text::transaction_type;
+ALTER TABLE pending_transactions ALTER COLUMN type TYPE transaction_type USING type::text::transaction_type;
 
 -- remove the old type
 DROP TYPE transaction_type_old;
