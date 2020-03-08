@@ -41,7 +41,9 @@ to_type(blockchain_txn_token_burn_v1) ->
 to_type(blockchain_txn_dc_coinbase_v1) ->
     "dc_coinbase_v1";
 to_type(blockchain_txn_token_burn_exchange_rate_v1) ->
-    "token_burn_exchange_rate_v1".
+    "token_burn_exchange_rate_v1";
+to_type(blockchain_txn_payment_v2) ->
+    "payment_v2".
 
 to_json(T, Ledger) ->
     to_json(blockchain_txn:type(T), T, Ledger).
@@ -200,4 +202,16 @@ to_json(blockchain_txn_dc_coinbase_v1, T, _Ledger) ->
     #{ <<"payee">> => ?BIN_TO_B58(blockchain_txn_dc_coinbase_v1:payee(T)),
        <<"amount">> => blockchain_txn_dc_coinbase_v1:amount(T) };
 to_json(blockchain_txn_token_burn_exchange_rate_v1, T, _Ledger) ->
-    #{<<"rate">> => blockchain_txn_token_burn_exchange_rate_v1:rate(T) }.
+    #{<<"rate">> => blockchain_txn_token_burn_exchange_rate_v1:rate(T) };
+to_json(blockchain_txn_payment_v2, T, _Ledger) ->
+
+    PaymentJson = fun(P) ->
+                          #{<<"payee">> => ?BIN_TO_B58(blockchain_payment_v2:payee(P)),
+                            <<"amount">> => blockchain_payment_v2:amount(P) }
+                  end,
+
+    #{<<"payer">> => ?BIN_TO_B58(blockchain_txn_payment_v2:payer(T)),
+      <<"payments">> => [PaymentJson(Payment) || Payment <- blockchain_txn_payment_v2:payments(T)],
+      <<"fee" >> => blockchain_txn_payment_v2:fee(T),
+      <<"nonce">> => blockchain_txn_payment_v2:nonce(T),
+      <<"signature">> => ?BIN_TO_B64(blockchain_txn_payment_v2:signature(T)) }.

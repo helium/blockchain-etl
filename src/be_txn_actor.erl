@@ -125,4 +125,10 @@ to_actors(blockchain_txn_token_burn_v1, T) ->
 to_actors(blockchain_txn_dc_coinbase_v1, T) ->
     [{"payee", blockchain_txn_dc_coinbase_v1:payee(T)} ];
 to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T) ->
-    [].
+    [];
+to_actors(blockchain_txn_payment_v2, T) ->
+    ToActors = fun(Payment, Acc) ->
+                       [{"payee", blockchain_payment_v2:payee(Payment)} | Acc]
+               end,
+    lists:foldl(ToActors, [{"payer", blockchain_txn_payment_v2:payer(T)}],
+                blockchain_txn_payment_v2:payments(T)).
