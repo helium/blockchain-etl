@@ -130,5 +130,5 @@ to_actors(blockchain_txn_payment_v2, T) ->
     ToActors = fun(Payment, Acc) ->
                        [{"payee", blockchain_payment_v2:payee(Payment)} | Acc]
                end,
-    Payees = lists:foldl(ToActors, [], blockchain_txn_payment_v2:payments(T)),
-    Payees ++ [{"payer", blockchain_txn_payment_v2:payer(T)}].
+    lists:foldl(ToActors, [{"payer", blockchain_txn_payment_v2:payer(T)}],
+                blockchain_txn_payment_v2:payments(T)).
