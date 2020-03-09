@@ -2,6 +2,10 @@ FROM ubuntu:18.04
 
 EXPOSE 22222
 
+RUN apt update
+RUN apt install -y iproute2 tinysshd
+RUN apt clean
+
 RUN mkdir -p /root/.ssh
 COPY .buildkite/config/ubuntu.pubkey /root/.ssh/authorized_keys
 RUN chmod 0600 /root/.ssh/authorized_keys
