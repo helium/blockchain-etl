@@ -3,8 +3,8 @@ Description=Blockchain ETL application
 After=network.target
 
 [Service]
-Type=forking
-ExecStart=/var/helium/blockchain_etl/bin/blockchain_etl start
+Type=simple
+ExecStart=/var/helium/blockchain_etl/bin/blockchain_etl foreground
 ExecStop=/var/helium/blockchain_etl/bin/blockchain_etl stop
 User=ubuntu
 PIDFile=/var/data/blockchain_etl/blockchain_etl.pid
