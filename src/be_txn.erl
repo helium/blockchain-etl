@@ -43,7 +43,11 @@ to_type(blockchain_txn_dc_coinbase_v1) ->
 to_type(blockchain_txn_token_burn_exchange_rate_v1) ->
     "token_burn_exchange_rate_v1";
 to_type(blockchain_txn_payment_v2) ->
-    "payment_v2".
+    "payment_v2";
+to_type(blockchain_txn_state_channel_open_v1) ->
+    "state_channel_open_v1";
+to_type(blockchain_txn_state_channel_close_v1) ->
+    "state_channel_close_v1".
 
 to_json(T, Ledger) ->
     to_json(blockchain_txn:type(T), T, Ledger).
@@ -214,4 +218,33 @@ to_json(blockchain_txn_payment_v2, T, _Ledger) ->
       <<"payments">> => [PaymentJson(Payment) || Payment <- blockchain_txn_payment_v2:payments(T)],
       <<"fee" >> => blockchain_txn_payment_v2:fee(T),
       <<"nonce">> => blockchain_txn_payment_v2:nonce(T),
-      <<"signature">> => ?BIN_TO_B64(blockchain_txn_payment_v2:signature(T)) }.
+      <<"signature">> => ?BIN_TO_B64(blockchain_txn_payment_v2:signature(T)) };
+to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
+    #{<<"id">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:id(T)),
+      <<"owner">> => ?BIN_TO_B58(blockchain_txn_state_channel_open_v1:owner(T)),
+      <<"amount">> => blockchain_txn_state_channel_open_v1:amount(T),
+      <<"fee" >> => blockchain_txn_state_channel_open_v1:fee(T),
+      <<"nonce">> => blockchain_txn_state_channel_open_v1:nonce(T),
+      <<"expire_within">> => blockchain_txn_state_channel_open_v1:expire_within(T),
+      <<"signature">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:signature(T)) };
+to_json(blockchain_txn_state_channel_close_v1, T, _Ledger) ->
+
+    BalanceJson = fun(Balance) ->
+                          #{ <<"address">> => ?BIN_TO_B58(blockchain_state_channel_balance_v1:payee(Balance)),
+                             <<"num_bytes">> => blockchain_state_channel_balance_v1:balance(Balance)
+                           }
+                  end,
+
+    SCJson = fun(SC) ->
+                     #{<<"id">> => ?BIN_TO_B64(blockchain_state_channel_v1:id(SC)),
+                       <<"owner">> => ?BIN_TO_B58(blockchain_state_channel_v1:owner(SC)),
+                       <<"credits">> => blockchain_state_channel_v1:credits(SC),
+                       <<"balances">> => [BalanceJson(B) || B <- blockchain_state_channel_v1:balances(SC)],
+                       <<"root_hash">> => ?BIN_TO_B64(blockchain_state_channel_v1:root_hash(SC)),
+                       <<"state">> => blockchain_state_channel_v1:state(SC),
+                       <<"expire_at_block">> => blockchain_state_channel_v1:expire_at_block(SC) }
+             end,
+
+    #{<<"closer">> => ?BIN_TO_B58(blockchain_txn_state_channel_close_v1:closer(T)),
+      <<"state_channel">> => SCJson(blockchain_txn_state_channel_close_v1:state_channel(T)),
+      <<"signature">> => ?BIN_TO_B64(blockchain_txn_state_channel_close_v1:signature(T)) }.
