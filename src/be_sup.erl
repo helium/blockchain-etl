@@ -75,8 +75,8 @@ init([]) ->
                       {update_dir, "update"},
                       {base_dir, BaseDir}
                      ],
-
-    {ok, DBOpts} = psql_migration:connection_opts([]),
+    {ok, DBEnv} = application:get_env(blockchain_etl, db_env),
+    {ok, DBOpts} = psql_migration:connection_opts([{env, DBEnv}]),
     {ok, PoolArgs} = application:get_env(blockchain_etl, db_pool),
     {ok, DBHandlers} = application:get_env(blockchain_etl, db_handlers),
 
