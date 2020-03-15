@@ -8,15 +8,16 @@ create index transaction_actor_transaction_hash_idx on transaction_actors(transa
 alter table transaction_actors add column block bigint references blocks(height);
 -- For each block update block in transaction_actor. This can take a
 -- _long_ time
-do $$
+do
+$$
 begin
     for b in 1..(select max(height) from blocks)
     loop
         update transaction_actors set block = b
                where transaction_hash in (select hash from transactions where block = b);
-        -- raise notice 'handled block %', b;
     end loop;
-end$$;
+end
+$$;
 
 -- finally update actor block constraint to be non null.
 alter table transaction_actors alter column block set not null;
