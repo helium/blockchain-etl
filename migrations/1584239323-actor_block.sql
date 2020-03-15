@@ -19,7 +19,9 @@ begin
 end$$;
 
 -- finally update actor block constraint to be non null.
-ALTER TABLE transaction_actors ALTER COLUMN block SET NOT NULL;
+alter table transaction_actors alter column block set not null;
+-- Create index for transaction_actor block
+create index transaction_actor_block_idx on transaction_actors(block);
 
 -- :down
 -- Down migration
