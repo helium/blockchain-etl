@@ -24,7 +24,7 @@
 prepare_conn(Conn) ->
     {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_ACTOR,
-                     "insert into transaction_actors (actor, actor_role, transaction_hash) values ($1, $2, $3)", []),
+                     "insert into transaction_actors (block, actor, actor_role, transaction_hash) values ($1, $2, $3, $4)", []),
 
     ok.
 
@@ -43,11 +43,12 @@ load(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
     be_block_handler:run_queries(Conn, Queries, State).
 
 q_insert_transaction_actors(Block, Query, #state{s_insert_actor=Stmt}) ->
+    Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
                         TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
                         lists:foldl(fun({Role, Key}, ActorAcc) ->
-                                            [{Stmt, [?BIN_TO_B58(Key), Role, TxnHash]} | ActorAcc]
+                                            [{Stmt, [Height, ?BIN_TO_B58(Key), Role, TxnHash]} | ActorAcc]
                                     end, Acc, to_actors(T))
                 end, Query, Txns).
 
