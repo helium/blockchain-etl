@@ -38,7 +38,7 @@ prepare_conn(Conn) ->
                      "insert into block_signatures (block, signer, signature) values ($1, $2, $3)", []),
     {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_TXN,
-                     "insert into transactions (block, hash, type, fields) values ($1, $2, $3, $4)", []),
+                     "insert into transactions (block, time, hash, type, fields) values ($1, $2, $3, $4, $5)", []),
 
     ok.
 
@@ -101,10 +101,12 @@ q_insert_signatures(Block, Queries, #state{s_insert_block_sig=Stmt}) ->
 
 q_insert_transactions(Block, Queries, Ledger, #state{s_insert_txn=Stmt}) ->
     Height = blockchain_block_v1:height(Block),
+    Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
                         [{Stmt,
                           [Height,
+                           Time,
                            ?BIN_TO_B64(blockchain_txn:hash(T)),
                            be_txn:to_type(blockchain_txn:type(T)),
                            be_txn:to_json(T, Ledger)
