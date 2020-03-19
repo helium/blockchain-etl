@@ -10,6 +10,8 @@ update accounts set first_block=subquery.block
             from accounts group by address) as subquery
 where accounts.address=subquery.address;
 
+alter table accounts alter column first_block set not null;
+
 -- re-create the materialized view to include the first_block column
 drop materialized view account_ledger;
 create materialized view account_ledger as
@@ -19,7 +21,7 @@ create materialized view account_ledger as
 
 -- re-construct the primary index
 create unique index account_ledger_address_idx on account_ledger(address);
--- Add an index taht allows ordering the ledger for paging purposes
+-- Add an index that allows ordering the ledger for paging purposes
 create index account_ledger_first_block_idx on account_ledger(first_block);
 
 -- :down
