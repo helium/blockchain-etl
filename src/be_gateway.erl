@@ -32,7 +32,7 @@
 prepare_conn(Conn) ->
     {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_GATEWAY,
-                     "insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);", []),
+                     "insert into gateways (first_block, block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) select (select coalesce((select first_block from accounts where address=$3 limit 1), $1) as first_block), $1 as block, $2 as address, $3 as owner, $4 as location, $5 as alpha, $6 as beta, $7 as delta, $8 as score, $9 as last_poc_challenge, $10 as last_poc_onion_key_hash, $11 as witnesses;", []),
 
     ok.
 
