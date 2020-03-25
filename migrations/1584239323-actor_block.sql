@@ -10,8 +10,11 @@ alter table transaction_actors add column block bigint references blocks(height)
 -- _long_ time
 do
 $$
+declare
+    max_height bigint;
 begin
-    for b in 1..(select max(height) from blocks)
+    max_height := (select max(height) from blocks);
+    for b in 1..coalesce(max_height, 1)
     loop
         update transaction_actors set block = b
                where transaction_hash in (select hash from transactions where block = b);
