@@ -4,7 +4,7 @@
 -- This adds support for filtering transaction fields down to the
 -- given account that matters. This depends on the type of transaction
 -- so we use a case statement and handle the two common cases.
-create function txn_filter_activity(acc text, type transaction_type, fields jsonb) returns jsonb as $$
+create function txn_filter_account_activity(acc text, type transaction_type, fields jsonb) returns jsonb as $$
 begin
     case
         when type = 'rewards_v1' then
@@ -23,4 +23,4 @@ language plpgsql;
 
 -- :down
 
-drop function txn_filter_activity;
+drop function txn_filter_account_activity;
