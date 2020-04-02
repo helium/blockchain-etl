@@ -6,6 +6,8 @@ begin
     case
         when type = 'rewards_v1' then
             return jsonb_set(fields, '{rewards}', (select jsonb_agg(x) from jsonb_to_recordset(fields#>'{rewards}') as x(account text, amount bigint, type text, gateway text) where gateway = gw));
+        when type = 'consensus_group_v1' then
+           return fields - 'proof';
         else
             return fields;
     end case;
