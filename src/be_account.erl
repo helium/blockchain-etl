@@ -42,7 +42,18 @@
 prepare_conn(Conn) ->
     {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_ACCOUNT,
-                     "insert into accounts (first_block, block, timestamp, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) select (select coalesce((select first_block from accounts where address=$3 limit 1), $1) as first_block), $1 as block, $2 as timestamp, $3 as address, $4 as dc_balance, $5 as dc_nonce, $6 as security_balance, $7 as security_nonce, $8 as balance, $9 as nonce", []),
+                     ["insert into accounts (first_block, block, timestamp, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) select ",
+                      "(select coalesce((select min(block) from accounts where address=$3), $1) as first_block), ",
+                      "$1 as block, ",
+                      "$2 as timestamp, ",
+                      "$3 as address, ",
+                      "$4 as dc_balance, ",
+                      "$5 as dc_nonce, ",
+                      "$6 as security_balance, ",
+                      "$7 as security_nonce, ",
+                      "$8 as balance, ",
+                      "$9 as nonce"],
+                     []),
 
     ok.
 
