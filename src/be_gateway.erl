@@ -32,8 +32,7 @@
 prepare_conn(Conn) ->
     {ok, _} =
         epgsql:parse(Conn, ?Q_INSERT_GATEWAY,
-                     ["insert into gateways (first_block, block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) select ",
-                      "(select coalesce((select min(block) from gateways where address=$2), $1) as first_block), ",
+                     ["insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) select ",
                       "$1 as block, ",
                       "$2 as address, ",
                       "$3 as owner, ",
