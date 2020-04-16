@@ -9,11 +9,10 @@ RUN apt install -y ./blockchain-etl*.deb
 RUN rm -rf /var/apt/cache
 RUN rm -f blockchain-etl*.deb
 
-# Delete the default .env and replace it with an empty file
+# Delete the default .env in case there is one present
 # We expect the appropriate environment will be set at
 # container start time.
 RUN rm -f /var/helium/blockchain_etl/.env
-RUN touch /var/helium/blockchain_etl/.env
 
 COPY .buildkite/config/blockchain_limits.conf /etc/security/limits.d
 
