@@ -61,6 +61,7 @@ counts() ->
 %%%===================================================================
 
 init([]) ->
+    ok = blockchain_event:add_sync_handler(self()),
     {ok, Handlers} = init_handlers(?HANDLER_MODULES),
     ets:new(?CACHE, [public, named_table, {read_concurrency, true}]),
     Height = case ?EQUERY("select max(height) from blocks", []) of
@@ -71,7 +72,8 @@ init([]) ->
     ets:insert(?CACHE, [{?CACHE_HEIGHT, Height},
                         {?CACHE_SYNC, true}
                        ]),
-    self() ! chain_check,
+    blockchain_worker:load(application:get_env(blockchain, base_dir, "data"),
+                           "update"),
     {ok, #state{handler_state=Handlers}}.
 
 handle_call(_Request, _From, State) ->
@@ -82,6 +84,9 @@ handle_cast(_Msg, State) ->
     lager:warning("unexpected cast ~p", [_Msg]),
     {noreply, State}.
 
+handle_info({blockchain_event, From, {new_chain, Chain}}, State0=#state{}) ->
+    blockchain_event:acknowledge(From),
+    {noreply, State0#state{chain=Chain}};
 handle_info({blockchain_event, From, {add_block, Hash, Sync, Ledger}}, State0=#state{chain=Chain}) ->
     {ok, Block} = blockchain:get_block(Hash, Chain),
     Height = ets:lookup_element(?CACHE, ?CACHE_HEIGHT, 2),
@@ -123,18 +128,6 @@ handle_info({blockchain_event, From, Other}, State=#state{}) ->
     blockchain_event:acknowledge(From),
     {noreply, State};
 
-%% Wait fo chain to come up
-handle_info(chain_check, State=#state{chain=undefined}) ->
-    case blockchain_worker:blockchain() of
-        undefined ->
-            erlang:send_after(500, self(), chain_check),
-            {noreply, State};
-        Chain ->
-            ok = blockchain_event:add_sync_handler(self()),
-            {noreply, State#state{chain = Chain}}
-    end;
-handle_info(chain_check, State=#state{}) ->
-    {noreply, State};
 handle_info(_Info, State) ->
     lager:warning("unexpected message ~p", [_Info]),
     {noreply, State}.
