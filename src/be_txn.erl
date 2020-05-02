@@ -222,6 +222,7 @@ to_json(blockchain_txn_payment_v2, T, _Ledger) ->
 to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
     #{<<"id">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:id(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_state_channel_open_v1:owner(T)),
+      <<"oui">> => blockchain_txn_state_channel_open_v1:oui(T),
       <<"amount">> => blockchain_txn_state_channel_open_v1:amount(T),
       <<"fee" >> => blockchain_txn_state_channel_open_v1:fee(T),
       <<"nonce">> => blockchain_txn_state_channel_open_v1:nonce(T),
@@ -229,17 +230,18 @@ to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:signature(T)) };
 to_json(blockchain_txn_state_channel_close_v1, T, _Ledger) ->
 
-    BalanceJson = fun(Balance) ->
-                          #{ <<"address">> => ?BIN_TO_B58(blockchain_state_channel_balance_v1:payee(Balance)),
-                             <<"num_bytes">> => blockchain_state_channel_balance_v1:balance(Balance)
+    SummaryJson = fun(Summary) ->
+                          #{ <<"client_pubkeybin">> => ?BIN_TO_B58(blockchain_state_channel_summary_v1:client_pubkeybin(Summary)),
+                             <<"num_dcs">> => blockchain_state_channel_summary_v1:num_dcs(Summary),
+                             <<"num_packets">> => blockchain_state_channel_summary_v1:num_packets(Summary)
                            }
                   end,
 
     SCJson = fun(SC) ->
                      #{<<"id">> => ?BIN_TO_B64(blockchain_state_channel_v1:id(SC)),
                        <<"owner">> => ?BIN_TO_B58(blockchain_state_channel_v1:owner(SC)),
-                       <<"credits">> => blockchain_state_channel_v1:credits(SC),
-                       <<"balances">> => [BalanceJson(B) || B <- blockchain_state_channel_v1:balances(SC)],
+                       <<"nonce">> => blockchain_state_channel_v1:none(SC),
+                       <<"summaries">> => [SummaryJson(B) || B <- blockchain_state_channel_v1:summaries(SC)],
                        <<"root_hash">> => ?BIN_TO_B64(blockchain_state_channel_v1:root_hash(SC)),
                        <<"state">> => blockchain_state_channel_v1:state(SC),
                        <<"expire_at_block">> => blockchain_state_channel_v1:expire_at_block(SC) }
