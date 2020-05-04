@@ -1,54 +1,55 @@
--module(be_txn_actor).
+-module(be_db_txn_actor).
 
--include("be_block_handler.hrl").
+-include("be_follower.hrl").
+-include("be_db_worker.hrl").
 
 -behavior(be_db_worker).
--behavior(be_block_handler).
+-behavior(be_db_follower).
 
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load/6, to_actors/1]).
+-export([init/0, load/6, to_actors/1]).
 
--define(Q_INSERT_ACTOR, "insert_actor").
+-define(S_INSERT_ACTOR, "insert_actor").
 
--record(state,
-       {
-        s_insert_actor :: epgsql:statement()
-       }).
+-record(state, {}).
 
 %%
 %% be_db_worker
 %%
 
 prepare_conn(Conn) ->
-    {ok, _} =
-        epgsql:parse(Conn, ?Q_INSERT_ACTOR,
-                     "insert into transaction_actors (block, actor, actor_role, transaction_hash) values ($1, $2, $3, $4)", []),
+    {ok, S1} =
+        epgsql:parse(Conn, ?S_INSERT_ACTOR,
+                     ["insert into transaction_actors (block, actor, actor_role, transaction_hash) ",
+                      "values ($1, $2, $3, $4)"],
+                     []),
 
-    ok.
+    #{
+      ?S_INSERT_ACTOR => S1
+     }.
 
 %%
 %% be_block_handler
 %%
 
-init(Conn) ->
-    {ok, InsertActor} = epgsql:describe(Conn, statement, ?Q_INSERT_ACTOR),
-    {ok, #state{
-            s_insert_actor = InsertActor
-           }}.
+init() ->
+    {ok, #state{}}.
 
 load(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
     Queries = q_insert_transaction_actors(Block, [], State),
-    be_block_handler:run_queries(Conn, Queries, State).
+    ok = ?BATCH_QUERY(Conn, Queries),
+    {ok, State}.
 
-q_insert_transaction_actors(Block, Query, #state{s_insert_actor=Stmt}) ->
+q_insert_transaction_actors(Block, Query, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
                         TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
                         lists:foldl(fun({Role, Key}, ActorAcc) ->
-                                            [{Stmt, [Height, ?BIN_TO_B58(Key), Role, TxnHash]} | ActorAcc]
+                                            [{?S_INSERT_ACTOR,
+                                              [Height, ?BIN_TO_B58(Key), Role, TxnHash]} | ActorAcc]
                                     end, Acc, to_actors(T))
                 end, Query, Txns).
 

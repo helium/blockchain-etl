@@ -1,4 +1,4 @@
--module(be_geocoder).
+-module(be_db_geocoder).
 
 -include("be_db_worker.hrl").
 
@@ -25,15 +25,18 @@
 -define(S_LOCATION_INSERT, "location_insert").
 
 prepare_conn(Conn) ->
-    {ok, _} =
+    {ok, S1} =
         epgsql:parse(Conn, ?S_UNKNOWN_LOCATION_LIST,
                      "select g.location from gateway_ledger g where not exists ( select from locations l where l.location = g.location ) and g.location is not null limit 100", []),
 
-    {ok, _} =
+    {ok, S2} =
         epgsql:parse(Conn, ?S_LOCATION_INSERT,
                      "insert into  locations (location, short_street, long_street, short_city, long_city, short_state, long_state, short_country, long_country) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict do nothing", []),
 
-    ok.
+    #{
+      ?S_UNKNOWN_LOCATION_LIST => S1,
+      ?S_LOCATION_INSERT => S2
+     }.
 
 %%
 %% gen_server
