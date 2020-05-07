@@ -1,7 +1,7 @@
--module(be_pending_txn_worker).
+-module(be_db_pending_txn).
 
 -include("be_db_worker.hrl").
--include("be_block_handler.hrl"). % for BIN utility
+-include("be_follower.hrl"). % for BIN utility
 
 -behavior(gen_server).
 -behavior(be_db_worker).
@@ -11,10 +11,7 @@
 %% gen_server
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
--record(state, {
-                s_set_pending :: epgsql:statement(),
-                s_insert_actor :: epgsql:statement()
-               }).
+-record(state, {}).
 
 %%
 %% be_db_worker
@@ -30,19 +27,19 @@
 -define(SELECT_PENDING_TXN_BASE, "select t.hash, t.data from pending_transactions t ").
 
 prepare_conn(Conn) ->
-    {ok, _} =
+    {ok, S1} =
         epgsql:parse(Conn, ?S_PENDING_TXN_LIST_INIT,
                      ?SELECT_PENDING_TXN_BASE "where t.status in ('received', 'pending') order by created_at", []),
 
-    {ok, _} =
+    {ok, S2} =
         epgsql:parse(Conn, ?S_PENDING_TXN_LIST_RECEIVED,
                      ?SELECT_PENDING_TXN_BASE "where t.status = 'received' order by created_at", []),
 
-    {ok, _} =
+    {ok, S3} =
         epgsql:parse(Conn, ?S_PENDING_TXN_DELETE,
                     "DELETE from pending_transactions where hash = $1", []),
 
-    {ok, _} =
+    {ok, S4} =
         epgsql:parse(Conn, ?S_PENDING_TXN_FAIL,
                      ["UPDATE pending_transactions SET ",
                       "status = 'failed', ",
@@ -50,7 +47,7 @@ prepare_conn(Conn) ->
                       "WHERE hash = $1"],
                      []),
 
-    {ok, _} =
+    {ok, S5} =
         epgsql:parse(Conn, ?S_PENDING_TXN_SET_PENDING,
                      ["UPDATE pending_transactions SET ",
                       "status = 'pending', ",
@@ -58,13 +55,20 @@ prepare_conn(Conn) ->
                       "fields = $2",
                       "WHERE hash = $1"],
                      []),
-    {ok, _} =
+    {ok, S6} =
         epgsql:parse(Conn, ?S_PENDING_TXN_INSERT_ACTOR,
                      ["insert into pending_transaction_actors ",
                       "(actor, actor_role, transaction_hash) values ",
                       "($1, $2, $3) ",
                      "on conflict do nothing"], []),
-    ok.
+    #{
+      ?S_PENDING_TXN_LIST_INIT => S1,
+      ?S_PENDING_TXN_LIST_RECEIVED => S2,
+      ?S_PENDING_TXN_DELETE => S3,
+      ?S_PENDING_TXN_FAIL => S4,
+      ?S_PENDING_TXN_SET_PENDING => S5,
+      ?S_PENDING_TXN_INSERT_ACTOR => S6
+     }.
 
 %%
 %% gen_server
@@ -76,17 +80,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    {SetPending, InsertActor} = ?WITH_CONNECTION(
-                       fun(Conn) ->
-                               {ok, Set} = epgsql:describe(Conn, statement, ?S_PENDING_TXN_SET_PENDING),
-                               {ok, Insert} = epgsql:describe(Conn, statement, ?S_PENDING_TXN_INSERT_ACTOR),
-                               {Set, Insert}
-                       end),
     self() ! {submit_pending, ?S_PENDING_TXN_LIST_INIT},
-    {ok, #state{
-            s_set_pending = SetPending,
-            s_insert_actor = InsertActor
-           }}.
+    {ok, #state{}}.
 
 handle_call(Request, _From, State) ->
     lager:notice("Unhandled call ~p", [Request]),
@@ -98,8 +93,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 
-handle_info({submit_pending, Stmt}, State=#state{s_insert_actor=StmtInsertActor,
-                                                 s_set_pending=StmtSetPending}) ->
+handle_info({submit_pending, Stmt}, State=#state{}) ->
     {ok, PendingTxns} = get_pending_txns(Stmt),
     Parent = self(),
     lager:info("Submitting ~p pending transactions", [length(PendingTxns)]),
@@ -114,14 +108,14 @@ handle_info({submit_pending, Stmt}, State=#state{s_insert_actor=StmtInsertActor,
                                          catch
                                              _:_ -> null
                                          end,
-                                [{StmtSetPending, [TxnHash, Fields]} | Acc]
+                                [{?S_PENDING_TXN_SET_PENDING, [TxnHash, Fields]} | Acc]
                         end,
     %% Insert the actors for a given transaction
     QInsertActors = fun(TxnHash, Txn, Acc) ->
                             lists:foldl(fun({Role, Actor}, TAcc) ->
-                                                  [{StmtInsertActor,
+                                                  [{?S_PENDING_TXN_INSERT_ACTOR,
                                                     [?BIN_TO_B58(Actor), Role, TxnHash]} | TAcc]
-                                        end, Acc, be_txn_actor:to_actors(Txn))
+                                        end, Acc, be_db_txn_actor:to_actors(Txn))
                     end,
 
     %% Submit all pending txns with given statuses to the chain
@@ -136,8 +130,8 @@ handle_info({submit_pending, Stmt}, State=#state{s_insert_actor=StmtInsertActor,
                                                 end, [],
                                                 [QUpdatePendingTxn,
                                                  QInsertActors]),
-                          ?WITH_TRANSACTION(fun(Conn) ->
-                                                    be_block_handler:run_queries(Conn, Queries, undefined)
+                          ?WITH_TRANSACTION(fun(C) ->
+                                                    ?BATCH_QUERY(C, Queries)
                                             end)
                   end, PendingTxns),
     PendingTime = application:get_env(blockchain_etl, pending_interval, 10000),

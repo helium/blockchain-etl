@@ -1,7 +1,7 @@
 -module(be_txn).
 -export([to_type/1, to_json/2]).
 
--include("be_block_handler.hrl").
+-include("be_follower.hrl").
 
 -spec to_type(atom()) -> string().
 to_type(blockchain_txn_coinbase_v1) ->

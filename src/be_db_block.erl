@@ -1,67 +1,75 @@
--module(be_block).
+-module(be_db_block).
 
 -behavior(be_db_worker).
--behavior(be_block_handler).
+-behavior(be_db_follower).
 
--include("be_block_handler.hrl").
+-include("be_follower.hrl").
+-include("be_db_worker.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load/6]).
+-export([init/0, load/6]).
 
--define(Q_INSERT_BLOCK, "insert_block").
--define(Q_INSERT_BLOCK_SIG, "insert_block_signature").
--define(Q_INSERT_TXN, "insert_transaction").
+-define(S_BLOCK_HEIGHT, "block_height").
+-define(S_INSERT_BLOCK, "insert_block").
+-define(S_INSERT_BLOCK_SIG, "insert_block_signature").
+-define(S_INSERT_TXN, "insert_transaction").
 
 -record(state,
        {
         height :: non_neg_integer(),
 
-        base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
-        s_insert_block :: epgsql:statement(),
-        s_insert_txn :: epgsql:statement(),
-        s_insert_block_sig :: epgsql:statement()
+        base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer()
        }).
+
 
 %%
 %% be_db_worker
 %%
 
 prepare_conn(Conn) ->
-    {ok, _} =
-        epgsql:parse(Conn, ?Q_INSERT_BLOCK,
-                     "insert into blocks (height, time, timestamp, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", []),
-    {ok, _} =
-        epgsql:parse(Conn, ?Q_INSERT_BLOCK_SIG,
-                     "insert into block_signatures (block, signer, signature) values ($1, $2, $3)", []),
-    {ok, _} =
-        epgsql:parse(Conn, ?Q_INSERT_TXN,
-                     "insert into transactions (block, time, hash, type, fields) values ($1, $2, $3, $4, $5)", []),
+    {ok, S0} =
+        epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
+                     "select max(height) from blocks",
+                     []),
 
-    ok.
+    {ok, S1} =
+        epgsql:parse(Conn, ?S_INSERT_BLOCK,
+                     "insert into blocks (height, time, timestamp, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);",
+                     []),
+    {ok, S2} =
+        epgsql:parse(Conn, ?S_INSERT_BLOCK_SIG,
+                     "insert into block_signatures (block, signer, signature) values ($1, $2, $3)",
+                     []),
+    {ok, S3} =
+        epgsql:parse(Conn, ?S_INSERT_TXN,
+                     "insert into transactions (block, time, hash, type, fields) values ($1, $2, $3, $4, $5)",
+                     []),
+
+    #{
+      ?S_BLOCK_HEIGHT => S0,
+      ?S_INSERT_BLOCK => S1,
+      ?S_INSERT_BLOCK_SIG => S2,
+      ?S_INSERT_TXN => S3
+     }.
 
 %%
 %% be_block_handler
 %%
 
-init(Conn) ->
-    {ok, InsertBlock} = epgsql:describe(Conn, statement, ?Q_INSERT_BLOCK),
-    {ok, InsertBlockSig} = epgsql:describe(Conn, statement, ?Q_INSERT_BLOCK_SIG),
-    {ok, InsertTxn} = epgsql:describe(Conn, statement, ?Q_INSERT_TXN),
-
-    {ok, _, [{HeightStr}]} = epgsql:squery(Conn, "select max(height) from blocks"),
-    Height = case HeightStr of
+init() ->
+    {ok, _, [{Value}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
+    Height = case Value of
                  null -> 0;
-                 _ -> binary_to_integer(HeightStr)
+                 _ -> Value
              end,
+    lager:info("Block database at height: ~p", [Height]),
+    ets:insert(?CACHE, [{?CACHE_HEIGHT, Height}]),
     {ok, #state{
-            height = Height,
-            s_insert_block = InsertBlock,
-            s_insert_block_sig = InsertBlockSig,
-            s_insert_txn = InsertTxn
-           }}.
+            height = Height
+            }}.
 
 load(Conn, Hash, Block, _Sync, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
@@ -69,9 +77,11 @@ load(Conn, Hash, Block, _Sync, Ledger, State=#state{}) ->
                  "New block must line up with stored height"),
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
-    be_block_handler:run_queries(Conn, BlockQueries, State#state{height=BlockHeight}).
+    ok = ?BATCH_QUERY(Conn, BlockQueries),
+    ets:insert(?CACHE, [{?CACHE_HEIGHT, BlockHeight}]),
+    {ok, State#state{height=BlockHeight}}.
 
-q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt, base_secs=BaseSecs}) ->
+q_insert_block(Hash, Block, Ledger, Queries, State=#state{base_secs=BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     BlockTime = blockchain_block_v1:time(Block),
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
@@ -85,13 +95,14 @@ q_insert_block(Hash, Block, Ledger, Queries, State=#state{s_insert_block=Stmt, b
               ElectionEpoch,
               EpochStart,
               ?BIN_TO_B64(blockchain_block_v1:rescue_signature(Block))],
-    [{Stmt, Params} | q_insert_signatures(Block, q_insert_transactions(Block, Queries, Ledger, State), State)].
+    [{?S_INSERT_BLOCK, Params}
+     | q_insert_signatures(Block, q_insert_transactions(Block, Queries, Ledger, State), State)].
 
-q_insert_signatures(Block, Queries, #state{s_insert_block_sig=Stmt}) ->
+q_insert_signatures(Block, Queries, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Signatures = blockchain_block_v1:signatures(Block),
     lists:foldl(fun({Signer, Signature}, Acc) ->
-                        [{Stmt,
+                        [{?S_INSERT_BLOCK_SIG,
                           [
                            Height,
                            ?BIN_TO_B58(Signer),
@@ -99,12 +110,12 @@ q_insert_signatures(Block, Queries, #state{s_insert_block_sig=Stmt}) ->
                           ]} | Acc]
                          end, Queries, Signatures).
 
-q_insert_transactions(Block, Queries, Ledger, #state{s_insert_txn=Stmt}) ->
+q_insert_transactions(Block, Queries, Ledger, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
-                        [{Stmt,
+                        [{?S_INSERT_TXN,
                           [Height,
                            Time,
                            ?BIN_TO_B64(blockchain_txn:hash(T)),

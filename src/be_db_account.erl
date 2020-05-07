@@ -1,21 +1,22 @@
--module(be_account).
+-module(be_db_account).
 
--include("be_block_handler.hrl").
+-include("be_follower.hrl").
+-include("be_db_worker.hrl").
+
 
 -behavior(be_db_worker).
--behavior(be_block_handler).
+-behavior(be_db_follower).
 
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load/6]).
+-export([init/0, load/6]).
 
 -define(ACCOUNT_LEDGER_REFRESH_SECS, 30).
 
 -record(state,
        {
         base_secs=calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}) :: pos_integer(),
-        s_insert_account :: epgsql:statement(),
 
         last_account_ledger_refresh=0 :: non_neg_integer(),
         account_ledger_refresh_secs=?ACCOUNT_LEDGER_REFRESH_SECS  :: non_neg_integer()
@@ -32,16 +33,17 @@
          nonce = 0
         }).
 
--define(Q_INSERT_ACCOUNT, "insert_account").
--define(Q_REFRESH_ASYNC_ACCOUNT_LEDGER, "refresh materialized view concurrently account_ledger").
+-define(S_ACCOUNT_INSERT, "account_insert").
+
+-define(S_ACCOUNT_REFRESH_ASYNC, "account_refresh_async").
 
 %%
 %% be_db_worker
 %%
 
 prepare_conn(Conn) ->
-    {ok, _} =
-        epgsql:parse(Conn, ?Q_INSERT_ACCOUNT,
+    {ok, S1} =
+        epgsql:parse(Conn, ?S_ACCOUNT_INSERT,
                      ["insert into accounts (block, timestamp, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce) select ",
                       "$1 as block, ",
                       "$2 as timestamp, ",
@@ -54,22 +56,26 @@ prepare_conn(Conn) ->
                       "$9 as nonce"],
                      []),
 
-    ok.
+    {ok, S2} =
+        epgsql:parse(Conn, ?S_ACCOUNT_REFRESH_ASYNC,
+                     "refresh materialized view concurrently account_ledger",
+                     []),
+
+    #{
+      ?S_ACCOUNT_INSERT => S1,
+      ?S_ACCOUNT_REFRESH_ASYNC => S2
+     }.
 
 
 %%
 %% be_block_handler
 %%
 
-init(Conn) ->
-    {ok, InsertAccount} = epgsql:describe(Conn, statement, ?Q_INSERT_ACCOUNT),
-
+init() ->
     lager:info("Updating account_ledger table concurrently"),
-    {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
+    {ok, _, _} = ?PREPARED_QUERY(?S_ACCOUNT_REFRESH_ASYNC, []),
 
-    {ok, #state{
-            s_insert_account = InsertAccount
-           }}.
+    {ok, #state{}}.
 
 load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     Txns = blockchain_block_v1:transactions(Block),
@@ -81,7 +87,7 @@ load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
                                                  end, Actors)
                          end,
     AccountKeys = lists:usort(lists:foldl(fun(Txn, Acc) ->
-                                                  AccountKeys = AccountsFromActors(be_txn_actor:to_actors(Txn)),
+                                                  AccountKeys = AccountsFromActors(be_db_txn_actor:to_actors(Txn)),
                                                   AccountKeys ++ Acc
                                           end, [], Txns)),
     %% Now update an accounts map with account balances for each found
@@ -96,23 +102,24 @@ load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     BlockTime = blockchain_block_v1:time(Block),
     Queries = [q_insert_account(BlockHeight, BlockTime, A, State) || A <- maps:values(Accounts)],
-    maybe_refresh_account_ledger(Conn, be_block_handler:run_queries(Conn, Queries, State)).
+    ok = ?BATCH_QUERY(Conn, Queries),
+    maybe_refresh_account_ledger(Conn, Queries, State).
 
-maybe_refresh_account_ledger(_Conn, {ok, 0, State=#state{}}) ->
-    {ok, 0, State};
-maybe_refresh_account_ledger(Conn, {ok, Count, State=#state{}}) ->
+maybe_refresh_account_ledger(_Conn, Queries, State) when length(Queries) == 0 ->
+    {ok, State};
+maybe_refresh_account_ledger(Conn, _Queries, State) ->
     case erlang:system_time(seconds) - State#state.last_account_ledger_refresh
         > State#state.account_ledger_refresh_secs of
         true ->
             lager:info("Updating account_ledger table concurrently"),
-            {ok, _, _} = epgsql:squery(Conn, ?Q_REFRESH_ASYNC_ACCOUNT_LEDGER),
-            {ok, Count+1, State#state{last_account_ledger_refresh=erlang:system_time(seconds)}};
+            {ok, _, _} = ?PREPARED_QUERY(Conn, ?S_ACCOUNT_REFRESH_ASYNC, []),
+            {ok, State#state{last_account_ledger_refresh=erlang:system_time(seconds)}};
         _ ->
-            {ok, Count, State}
+            {ok, State}
     end.
 
 
-q_insert_account(BlockHeight, BlockTime, Acc=#account{}, #state{s_insert_account=Stmt, base_secs=BaseSecs}) ->
+q_insert_account(BlockHeight, BlockTime, Acc=#account{}, #state{base_secs=BaseSecs}) ->
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
     Params = [BlockHeight,
               BlockDate,
@@ -124,7 +131,7 @@ q_insert_account(BlockHeight, BlockTime, Acc=#account{}, #state{s_insert_account
               Acc#account.balance,
               Acc#account.nonce
              ],
-    {Stmt, Params}.
+    {?S_ACCOUNT_INSERT, Params}.
 
 
 update_securities(Ledger, Keys, Accounts) ->
