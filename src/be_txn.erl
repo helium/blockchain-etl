@@ -61,10 +61,11 @@ to_json(blockchain_txn_security_coinbase_v1, T, _Ledger) ->
 to_json(blockchain_txn_oui_v1, T, _Ledger) ->
     #{<<"owner">> => ?BIN_TO_B58(blockchain_txn_oui_v1:owner(T)),
       <<"addresses">> => [binary_to_list(Addr) || Addr <- blockchain_txn_oui_v1:addresses(T)],
-      <<"oui" >> => blockchain_txn_oui_v1:oui(T),
       <<"payer">> => ?BIN_TO_B58(blockchain_txn_oui_v1:payer(T)),
       <<"staking_fee" >> => blockchain_txn_oui_v1:staking_fee(T),
       <<"fee" >> => blockchain_txn_oui_v1:fee(T),
+      <<"filter">> => ?MAYBE_B64(blockchain_txn_oui_v1:filter(T)),
+      <<"requested_subnet_size">> => blockchain_txn_oui_v1:requested_subnet_size(T),
       <<"owner_signature">> => ?BIN_TO_B64(blockchain_txn_oui_v1:owner_signature(T)),
       <<"payer_signature">> => ?BIN_TO_B64(blockchain_txn_oui_v1:payer_signature(T))};
 to_json(blockchain_txn_gen_gateway_v1, T, _Ledger) ->
@@ -73,10 +74,29 @@ to_json(blockchain_txn_gen_gateway_v1, T, _Ledger) ->
       <<"location">> => ?MAYBE_H3(blockchain_txn_gen_gateway_v1:location(T)),
       <<"nonce">> => blockchain_txn_gen_gateway_v1:nonce(T) };
 to_json(blockchain_txn_routing_v1, T, _Ledger) ->
+
+    ActionJson = fun(Action) ->
+                         case Action of
+                             {update_routers, RouterAddresses} ->
+                                 #{<<"action">> => <<"update_routers">>,
+                                   <<"router_addresses">> =>[?BIN_TO_B58(A) || A <- RouterAddresses]};
+                             {new_xor, Filter} ->
+                                 #{<<"action">> => <<"new_xor">>,
+                                   <<"filter">> => ?BIN_TO_B64(Filter)};
+                             {update_xor, Index, Filter} ->
+                                 #{<<"action">> => <<"update_xor">>,
+                                   <<"index">> => Index,
+                                   <<"filter">> => ?BIN_TO_B64(Filter)};
+                             {request_subnet, SubnetSize} ->
+                                 #{<<"action">> => <<"request_subnet">>,
+                                   <<"subnet_size">> => SubnetSize}
+                         end
+                 end,
+
     #{<<"oui">> => blockchain_txn_routing_v1:oui(T),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_routing_v1:owner(T)),
-      <<"addresses">> => [binary_to_list(Addr) || Addr <- blockchain_txn_routing_v1:addresses(T)],
       <<"fee" >> => blockchain_txn_routing_v1:fee(T),
+      <<"action">> => ActionJson(blockchain_txn_routing_v1:action(T)),
       <<"nonce">> => blockchain_txn_routing_v1:nonce(T),
       <<"signature">> => ?BIN_TO_B64(blockchain_txn_routing_v1:signature(T)) };
 to_json(blockchain_txn_payment_v1, T, _Ledger) ->
@@ -223,7 +243,6 @@ to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
     #{<<"id">> => ?BIN_TO_B64(blockchain_txn_state_channel_open_v1:id(T)),
       <<"owner">> => ?BIN_TO_B58(blockchain_txn_state_channel_open_v1:owner(T)),
       <<"oui">> => blockchain_txn_state_channel_open_v1:oui(T),
-      <<"amount">> => blockchain_txn_state_channel_open_v1:amount(T),
       <<"fee" >> => blockchain_txn_state_channel_open_v1:fee(T),
       <<"nonce">> => blockchain_txn_state_channel_open_v1:nonce(T),
       <<"expire_within">> => blockchain_txn_state_channel_open_v1:expire_within(T),
@@ -240,7 +259,7 @@ to_json(blockchain_txn_state_channel_close_v1, T, _Ledger) ->
     SCJson = fun(SC) ->
                      #{<<"id">> => ?BIN_TO_B64(blockchain_state_channel_v1:id(SC)),
                        <<"owner">> => ?BIN_TO_B58(blockchain_state_channel_v1:owner(SC)),
-                       <<"nonce">> => blockchain_state_channel_v1:none(SC),
+                       <<"nonce">> => blockchain_state_channel_v1:nonce(SC),
                        <<"summaries">> => [SummaryJson(B) || B <- blockchain_state_channel_v1:summaries(SC)],
                        <<"root_hash">> => ?BIN_TO_B64(blockchain_state_channel_v1:root_hash(SC)),
                        <<"state">> => blockchain_state_channel_v1:state(SC),
