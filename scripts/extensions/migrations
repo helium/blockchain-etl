@@ -1,5 +1,18 @@
 #!/bin/sh
 
 LIB_DIR=$ROOTDIR/lib
+find_erts_dir() {
+    __erts_dir="$ROOT_DIR/erts-$ERTS_VSN"
+    if [ -d "$__erts_dir" ]; then
+        ERTS_DIR="$__erts_dir";
+    else
+        __erl="$(which erl)"
+        code="io:format(\"~s\", [code:root_dir()]), halt()."
+        __erl_root="$("$__erl" -boot no_dot_erlang -sasl errlog_type error -noshell -eval "$code")"
+        ERTS_DIR="$__erl_root/erts-$ERTS_VSN"
+    fi
+}
+find_erts_dir
+ERTS_LIB_DIR="$(dirname "$ERTS_DIR")/lib"
 
-exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
+exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -boot_var ERTS_LIB_DIR "$ERTS_LIB_DIR" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
