@@ -1,4 +1,4 @@
--- migrations/1583860255-state_channel_role.sql
+-- migrations/1588975221-state_channel_role.sql
 -- :up
 -- Up migration
 ALTER TYPE transaction_actor_role ADD VALUE 'sc_opener';

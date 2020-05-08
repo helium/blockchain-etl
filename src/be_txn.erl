@@ -60,7 +60,7 @@ to_json(blockchain_txn_security_coinbase_v1, T, _Ledger) ->
       <<"amount">> => blockchain_txn_security_coinbase_v1:amount(T)};
 to_json(blockchain_txn_oui_v1, T, _Ledger) ->
     #{<<"owner">> => ?BIN_TO_B58(blockchain_txn_oui_v1:owner(T)),
-      <<"addresses">> => [binary_to_list(Addr) || Addr <- blockchain_txn_oui_v1:addresses(T)],
+      <<"addresses">> => [?BIN_TO_B58(Addr) || Addr <- blockchain_txn_oui_v1:addresses(T)],
       <<"payer">> => ?BIN_TO_B58(blockchain_txn_oui_v1:payer(T)),
       <<"staking_fee" >> => blockchain_txn_oui_v1:staking_fee(T),
       <<"fee" >> => blockchain_txn_oui_v1:fee(T),
@@ -250,7 +250,7 @@ to_json(blockchain_txn_state_channel_open_v1, T, _Ledger) ->
 to_json(blockchain_txn_state_channel_close_v1, T, _Ledger) ->
 
     SummaryJson = fun(Summary) ->
-                          #{ <<"client_pubkeybin">> => ?BIN_TO_B58(blockchain_state_channel_summary_v1:client_pubkeybin(Summary)),
+                          #{ <<"client">> => ?BIN_TO_B58(blockchain_state_channel_summary_v1:client_pubkeybin(Summary)),
                              <<"num_dcs">> => blockchain_state_channel_summary_v1:num_dcs(Summary),
                              <<"num_packets">> => blockchain_state_channel_summary_v1:num_packets(Summary)
                            }

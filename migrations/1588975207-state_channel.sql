@@ -1,4 +1,4 @@
--- migrations/1583860178-state_channel.sql
+-- migrations/1588975207-state_channel.sql
 -- :up
 -- Up migration
 ALTER TYPE transaction_type ADD VALUE 'state_channel_open_v1';
