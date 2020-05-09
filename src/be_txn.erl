@@ -79,7 +79,7 @@ to_json(blockchain_txn_routing_v1, T, _Ledger) ->
                          case Action of
                              {update_routers, RouterAddresses} ->
                                  #{<<"action">> => <<"update_routers">>,
-                                   <<"router_addresses">> =>[?BIN_TO_B58(A) || A <- RouterAddresses]};
+                                   <<"addresses">> =>[?BIN_TO_B58(A) || A <- RouterAddresses]};
                              {new_xor, Filter} ->
                                  #{<<"action">> => <<"new_xor">>,
                                    <<"filter">> => ?BIN_TO_B64(Filter)};
@@ -256,13 +256,20 @@ to_json(blockchain_txn_state_channel_close_v1, T, _Ledger) ->
                            }
                   end,
 
+    StateJson = fun(State) ->
+                        case State of
+                            open -> <<"open">>;
+                            closed -> <<"closed">>
+                        end
+                end,
+
     SCJson = fun(SC) ->
                      #{<<"id">> => ?BIN_TO_B64(blockchain_state_channel_v1:id(SC)),
                        <<"owner">> => ?BIN_TO_B58(blockchain_state_channel_v1:owner(SC)),
                        <<"nonce">> => blockchain_state_channel_v1:nonce(SC),
                        <<"summaries">> => [SummaryJson(B) || B <- blockchain_state_channel_v1:summaries(SC)],
                        <<"root_hash">> => ?BIN_TO_B64(blockchain_state_channel_v1:root_hash(SC)),
-                       <<"state">> => blockchain_state_channel_v1:state(SC),
+                       <<"state">> => StateJson(blockchain_state_channel_v1:state(SC)),
                        <<"expire_at_block">> => blockchain_state_channel_v1:expire_at_block(SC) }
              end,
 
