@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  push:
+    branches: [ community ]
+
+jobs:
+  build-and-push:
+    name: Build (Community)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: satackey/action-docker-layer-caching@v0.0.3
+        with:
+          key: blockchain-etl-docker-cache-{hash}
+          restore-keys: |
+            blockchain-etl-docker-cache-
+
+      - name: Build and Push to GitHub Packages
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: mylarapp/blockchain-etl/blockchain-etl
+          tag_with_ref: true
+          tag_with_sha: true
+          add_git_labels: true

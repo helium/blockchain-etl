@@ -1,0 +1,8 @@
+.github/
+_build/
+data/
+.env
+.dockerignore
+Dockerfile
+docker-build.sh
+docker-compose.yaml

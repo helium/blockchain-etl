@@ -1,0 +1,23 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:12-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/postgresql:/var/lib/postgresql/data:delegated
+    environment:
+      POSTGRES_USER: etl
+      POSTGRES_PASSWORD: etl
+  etl:
+    image: blockchain-etl:latest
+    entrypoint: "bash -c"
+    command: "exit 0"
+    volumes:
+      - ./data/etl-data:/var/data:delegated
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    environment:
+      DATABASE_URL: "postgresql://etl:etl@postgres:5432/etl"

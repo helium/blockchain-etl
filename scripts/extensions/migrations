@@ -2,4 +2,4 @@
 
 LIB_DIR=$ROOTDIR/lib
 
-exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
+exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -noshell -eval "application:ensure_all_started(ssl)" -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'

@@ -50,7 +50,7 @@ init([]) ->
         end,
 
     BaseDir = application:get_env(blockchain, base_dir, "data"),
-    SwarmKey = filename:join([BaseDir, "blockchain_etl", "swarm_key"]),
+    SwarmKey = filename:join([BaseDir, "swarm_key"]),
     ok = filelib:ensure_dir(SwarmKey),
     {PublicKey, ECDHFun, SigFun} =
         case libp2p_crypto:load_keys(SwarmKey) of
