@@ -133,4 +133,11 @@ to_actors(blockchain_txn_payment_v2, T) ->
                        [{"payee", blockchain_payment_v2:payee(Payment)} | Acc]
                end,
     lists:foldl(ToActors, [{"payer", blockchain_txn_payment_v2:payer(T)}],
-                blockchain_txn_payment_v2:payments(T)).
+                blockchain_txn_payment_v2:payments(T));
+to_actors(blockchain_txn_state_channel_open_v1, T) ->
+    %% NOTE: owner => sc_opener, renamed for better reasoning
+    [{"sc_opener", blockchain_txn_state_channel_open_v1:owner(T)} ];
+to_actors(blockchain_txn_state_channel_close_v1, T) ->
+    %% NOTE: closer can be one of the clients of the state channel or the owner of the router
+    %% if the state_channel expires
+    [{"sc_closer", blockchain_txn_state_channel_close_v1:closer(T)} ].
