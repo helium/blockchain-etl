@@ -31,6 +31,13 @@ listening for new block events.
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
 
+#### macOS Note
+You may see an error similar to the following during initial sync:
+
+`{error,"IO error: While open a file for appending: data/blockchain.db/020311.sst: Too many open files"}`
+
+Check [this](https://superuser.com/a/443168) Superuser answer for a workaround.
+
 ### Installing Ubuntu Required Packages
 
 If running on Ubuntu, you will need the following packages installed before
@@ -40,7 +47,7 @@ running `make release`:
 wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
 sudo dpkg -i erlang-solutions_1.0_all.deb
 sudo apt-get update
-sudo apt install esl-erlang cmake libsodium-dev libssl-dev
+sudo apt install esl-erlang cmake libsodium-dev libssl-dev build-essential
 ```
 
 ## WARNING
