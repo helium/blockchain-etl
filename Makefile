@@ -40,6 +40,8 @@ doc:
 release:
 	$(REBAR) as $(PROFILE) do release
 
+migrations: stop
+	./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl migrations run
 
 start:
 	cp -f .env ./_build/$(PROFILE)/rel/blockchain_etl/
