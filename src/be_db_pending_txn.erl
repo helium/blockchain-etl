@@ -103,10 +103,11 @@ handle_info({submit_pending, Stmt}, State=#state{}) ->
                           %% Fetch the actors and check it any of them is in the blacklist
                           TxnActors = lists:map(fun({Role, Actor}) ->
                                                         {Role, ?BIN_TO_B58(Actor)}
-                                                end, be_txn_actor:to_actors(PendingTxn)),
+                                                end, be_db_txn_actor:to_actors(PendingTxn)),
                           %% If any of the actors is in the blacklist we deny the transaction
                           Queries = case is_blacklisted(TxnActors) of
                                         true ->
+                                            lager:info("Blacklisted transaction: ~s", [TxnHash]),
                                             [{?S_PENDING_TXN_FAIL, [TxnHash, <<"blacklist">>]}];
                                         false ->
                                             blockchain_worker:submit_txn(PendingTxn,
