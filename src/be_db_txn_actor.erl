@@ -54,6 +54,7 @@ q_insert_transaction_actors(Block, Query, #state{}) ->
                 end, Query, Txns).
 
 
+-spec to_actors(blockchain_txn:txn()) -> [{string(), libp2p_crypto:pubkey_bin()}].
 to_actors(T) ->
     to_actors(blockchain_txn:type(T), T).
 
@@ -140,4 +141,11 @@ to_actors(blockchain_txn_state_channel_open_v1, T) ->
 to_actors(blockchain_txn_state_channel_close_v1, T) ->
     %% NOTE: closer can be one of the clients of the state channel or the owner of the router
     %% if the state_channel expires
-    [{"sc_closer", blockchain_txn_state_channel_close_v1:closer(T)} ].
+    SummaryToActors = fun(Summary, Acc) ->
+                              Receiver = blockchain_state_channel_summary_v1:client_pubkeybin(Summary),
+                              [{"packet_receiver", Receiver} | Acc]
+                      end,
+    lists:foldl(SummaryToActors,
+                [{"sc_closer", blockchain_txn_state_channel_close_v1:closer(T)} ],
+                blockchain_state_channel_v1:summaries(blockchain_txn_state_channel_close_v1:state_channel(T))
+                ).
