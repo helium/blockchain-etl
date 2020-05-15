@@ -92,44 +92,31 @@ handle_cast(Msg, State) ->
     lager:notice("Unhandled cast ~p", [Msg]),
     {noreply, State}.
 
-
 handle_info({submit_pending, Stmt}, State=#state{}) ->
     {ok, PendingTxns} = get_pending_txns(Stmt),
     Parent = self(),
     lager:info("Submitting ~p pending transactions", [length(PendingTxns)]),
-    %% Translates the pending transaction to it's json form. The
-    %% currently supported pending transactions are always submitted
-    %% without the need for a ledger so we don't use one here, but
-    %% safeguard against any errors converting to json by setting
-    %% fields to null
-    QUpdatePendingTxn = fun(TxnHash, Txn, Acc) ->
-                                Fields = try
-                                             be_txn:to_json(Txn, undefined)
-                                         catch
-                                             _:_ -> null
-                                         end,
-                                [{?S_PENDING_TXN_SET_PENDING, [TxnHash, Fields]} | Acc]
-                        end,
-    %% Insert the actors for a given transaction
-    QInsertActors = fun(TxnHash, Txn, Acc) ->
-                            lists:foldl(fun({Role, Actor}, TAcc) ->
-                                                  [{?S_PENDING_TXN_INSERT_ACTOR,
-                                                    [?BIN_TO_B58(Actor), Role, TxnHash]} | TAcc]
-                                        end, Acc, be_db_txn_actor:to_actors(Txn))
-                    end,
 
     %% Submit all pending txns with given statuses to the chain
     %% txn_manager and mark them as pending
     lists:foreach(fun({TxnHash, PendingTxn}) ->
-                          blockchain_worker:submit_txn(PendingTxn,
-                                                       fun(Res) ->
-                                                               Parent ! {pending_result, TxnHash, Res}
-                                                       end),
-                          Queries = lists:foldl(fun(Fun, Acc) ->
-                                                        Fun(TxnHash, PendingTxn, Acc)
-                                                end, [],
-                                                [QUpdatePendingTxn,
-                                                 QInsertActors]),
+                          %% Fetch the actors and check it any of them is in the blacklist
+                          TxnActors = lists:map(fun({Role, Actor}) ->
+                                                        {Role, ?BIN_TO_B58(Actor)}
+                                                end, be_txn_actor:to_actors(PendingTxn)),
+                          %% If any of the actors is in the blacklist we deny the transaction
+                          Queries = case is_blacklisted(TxnActors) of
+                                        true ->
+                                            [{?S_PENDING_TXN_FAIL, [TxnHash, <<"blacklist">>]}];
+                                        false ->
+                                            blockchain_worker:submit_txn(PendingTxn,
+                                                                         fun(Res) ->
+                                                                                 Parent ! {pending_result, TxnHash, Res}
+                                                                         end),
+                                            q_insert_actors(TxnHash, TxnActors,
+                                                            q_update_pending_txn(TxnHash, PendingTxn, []))
+                                    end,
+
                           ?WITH_TRANSACTION(fun(C) ->
                                                     ?BATCH_QUERY(C, Queries)
                                             end)
@@ -163,3 +150,34 @@ get_pending_txns(Stmt) ->
                                    [{Hash, blockchain_txn:unwrap_txn(Txn)} | Acc]
                            end
                      end, [], lists:reverse(Results))}.
+
+q_update_pending_txn(TxnHash, Txn, Acc) ->
+    %% Translates the pending transaction to it's json form. The
+    %% currently supported pending transactions are always submitted
+    %% without the need for a ledger so we don't use one here, but
+    %% safeguard against any errors converting to json by setting
+    %% fields to null
+    Fields = try
+                 be_txn:to_json(Txn, undefined)
+             catch
+                 _:_ -> null
+             end,
+    [{?S_PENDING_TXN_SET_PENDING, [TxnHash, Fields]} | Acc].
+
+q_insert_actors(TxnHash, TxnActors, Acc) ->
+    %% Takes the list of b58 encoded transaction rols, actor pairs and
+    %% sets up insertion queries. NOTE: The conversion to B58 is done
+    %% by the caller!
+    lists:foldl(fun({Role, Actor}, TAcc) ->
+                        [{?S_PENDING_TXN_INSERT_ACTOR,
+                          [Actor, Role, TxnHash]} | TAcc]
+                end, Acc, TxnActors).
+
+%% Returns if any of the given b58 encoded list of transactin actors
+%% is in the configured blacklist for the application.
+is_blacklisted(TxnActors) ->
+    {ok, BlackListStrings} = application:get_env(blockchain_etl, pending_blacklist, []),
+    BlackList = lists:map(fun(Str) -> list_to_binary(Str) end, BlackListStrings),
+    lists:any(fun(BlackListEntry) ->
+                      lists:keyfind(BlackListEntry, 2, TxnActors) /= false
+              end, BlackList).
