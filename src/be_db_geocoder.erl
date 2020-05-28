@@ -27,7 +27,7 @@
 prepare_conn(Conn) ->
     {ok, S1} =
         epgsql:parse(Conn, ?S_UNKNOWN_LOCATION_LIST,
-                     "select g.location from gateway_ledger g where not exists ( select from locations l where l.location = g.location ) and g.location is not null limit 100", []),
+                     "select g.location from gateway_inventory g where not exists ( select from locations l where l.location = g.location ) and g.location is not null limit 100", []),
 
     {ok, S2} =
         epgsql:parse(Conn, ?S_LOCATION_INSERT,
