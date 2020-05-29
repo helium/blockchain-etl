@@ -3,14 +3,16 @@
 -behavior(be_db_worker).
 -behavior(be_db_follower).
 
--include("be_follower.hrl").
+-include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/0, load/6]).
+-export([init/1, load_block/6]).
+%% api
+-export([block_height/1]).
 
 -define(S_BLOCK_HEIGHT, "block_height").
 -define(S_INSERT_BLOCK, "insert_block").
@@ -59,27 +61,37 @@ prepare_conn(Conn) ->
 %% be_block_handler
 %%
 
-init() ->
+init(_) ->
     {ok, _, [{Value}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
     Height = case Value of
                  null -> 0;
                  _ -> Value
              end,
     lager:info("Block database at height: ~p", [Height]),
-    ets:insert(?CACHE, [{?CACHE_HEIGHT, Height}]),
     {ok, #state{
             height = Height
-            }}.
+           }}.
 
-load(Conn, Hash, Block, _Sync, Ledger, State=#state{}) ->
+load_block(Conn, Hash, Block, _Sync, Ledger, State=#state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     ?assertEqual(BlockHeight, State#state.height + 1,
                  "New block must line up with stored height"),
     %% Seperate the queries to avoid the batches getting too big
     BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
     ok = ?BATCH_QUERY(Conn, BlockQueries),
-    ets:insert(?CACHE, [{?CACHE_HEIGHT, BlockHeight}]),
     {ok, State#state{height=BlockHeight}}.
+
+%%
+%% API
+%%
+
+block_height(#state{height=Height}) ->
+    Height.
+
+
+%%
+%% Internal
+%%
 
 q_insert_block(Hash, Block, Ledger, Queries, State=#state{base_secs=BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
@@ -115,11 +127,12 @@ q_insert_transactions(Block, Queries, Ledger, #state{}) ->
     Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(fun(T, Acc) ->
+                        Json=#{ type := Type } = be_txn:to_json(T, Ledger),
                         [{?S_INSERT_TXN,
                           [Height,
                            Time,
                            ?BIN_TO_B64(blockchain_txn:hash(T)),
-                           be_txn:to_type(blockchain_txn:type(T)),
-                           be_txn:to_json(T, Ledger)
+                           Type,
+                           Json
                           ]} | Acc]
                 end, Queries, Txns).

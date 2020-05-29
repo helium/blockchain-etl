@@ -1,6 +1,6 @@
 -module(be_db_txn_actor).
 
--include("be_follower.hrl").
+-include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
 -behavior(be_db_worker).
@@ -9,7 +9,9 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/0, load/6, to_actors/1]).
+-export([init/1, load_block/6]).
+%% api
+-export([to_actors/1]).
 
 -define(S_INSERT_ACTOR, "insert_actor").
 
@@ -34,10 +36,10 @@ prepare_conn(Conn) ->
 %% be_block_handler
 %%
 
-init() ->
+init(_) ->
     {ok, #state{}}.
 
-load(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
+load_block(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
     Queries = q_insert_transaction_actors(Block, [], State),
     ok = ?BATCH_QUERY(Conn, Queries),
     {ok, State}.

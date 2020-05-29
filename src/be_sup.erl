@@ -22,14 +22,15 @@
           modules => [I]
          }).
 
--define(WORKER(I, Args),
+-define(WORKER(I, Args), ?WORKER(I, I, Args)).
+-define(WORKER(I, M, Args),
         #{
           id => I,
-          start => {I, start_link, Args},
+          start => {M, start_link, Args},
           restart => permanent,
           shutdown => 5000,
           type => worker,
-          modules => [I]
+          modules => [M]
          }).
 
 start_link() ->
@@ -75,34 +76,28 @@ init([]) ->
                       {update_dir, "update"},
                       {base_dir, BaseDir}
                      ],
-    {ok, Profile} = application:get_env(blockchain_etl, profile),
+    {ok, DBOpts} = application:get_env(blockchain_etl, db),
+
+    PoolOpts = proplists:get_value(pool, DBOpts),
+    DBEnv = proplists:get_value(env, DBOpts),
+    DBHandlers = proplists:get_value(handlers, DBOpts),
+    {ok, DBConnectionOpts} = psql_migration:connection_opts([{env, DBEnv}]),
+
     {ok, {SupFlags,
       [
-       ?SUP(blockchain_sup, [BlockchainOpts])
-       ] ++ init_specs(Profile)
-
-      }
-     }.
-
-init_specs(db) ->
-    {ok, Opts} = application:get_env(blockchain_etl, db),
-
-    PoolOpts = proplists:get_value(pool, Opts),
-    DBEnv = proplists:get_value(env, Opts),
-    DBHandlers = proplists:get_value(handlers, Opts),
-
-    {ok, DBOpts} = psql_migration:connection_opts([{env, DBEnv}]),
-    [
-     poolboy:child_spec(?DB_POOL,
-                        [
-                         {name, {local, ?DB_POOL}},
-                         {worker_module, be_db_worker}
-                        ] ++ PoolOpts,
-                        [
-                         {db_opts, DBOpts},
-                         {db_handlers, DBHandlers}
-                         ]),
-     ?WORKER(be_follower, [[{handler, be_db_follower}]]),
-     ?WORKER(be_db_pending_txn, []),
-     ?WORKER(be_db_geocoder, [])
-    ].
+       ?SUP(blockchain_sup, [BlockchainOpts]),
+       poolboy:child_spec(?DB_POOL,
+                          [
+                           {name, {local, ?DB_POOL}},
+                           {worker_module, be_db_worker}
+                          ] ++ PoolOpts,
+                          [
+                           {db_opts, DBConnectionOpts},
+                           {db_handlers, DBHandlers}
+                          ]),
+       ?WORKER(db_follower,
+               blockchain_follower, [[{follower_module, {be_db_follower, [{base_dir, BaseDir}]}}]]),
+       ?WORKER(be_db_pending_txn, []),
+       ?WORKER(be_db_geocoder, [])
+      ]}
+    }.

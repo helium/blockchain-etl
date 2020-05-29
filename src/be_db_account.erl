@@ -1,6 +1,6 @@
 -module(be_db_account).
 
--include("be_follower.hrl").
+-include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
 
@@ -10,7 +10,7 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/0, load/6]).
+-export([init/1, load_block/6]).
 
 -define(ACCOUNT_LEDGER_REFRESH_SECS, 30).
 
@@ -71,13 +71,13 @@ prepare_conn(Conn) ->
 %% be_block_handler
 %%
 
-init() ->
+init(_) ->
     lager:info("Updating account_ledger table concurrently"),
     {ok, _, _} = ?PREPARED_QUERY(?S_ACCOUNT_REFRESH_ASYNC, []),
 
     {ok, #state{}}.
 
-load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
+load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     Txns = blockchain_block_v1:transactions(Block),
     %% Fetch actor keys that relate to accounts from each transaction's actors
     AccountsFromActors = fun(Actors) ->
