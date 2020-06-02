@@ -1,9 +1,7 @@
 -- migrations/1591133143-account_inventory.sql
 -- :up
 
-alter table accounts drop column timestamp;
-
-create table acount_inventory (
+create table account_inventory (
        address TEXT NOT NULL,
 
        balance BIGINT NOT NULL,
@@ -60,7 +58,8 @@ CREATE OR REPLACE FUNCTION account_inventory_update()
         dc_nonce = EXCLUDED.dc_nonce,
         security_balance = EXCLUDED.security_balance,
         security_nonce = EXCLUDED.security_nonce,
-        last_block = EXCLUDED.block;
+        last_block = EXCLUDED.last_block;
+  RETURN NEW;
  END;
  $$ LANGUAGE plpgsql;
 
@@ -69,7 +68,8 @@ create trigger account_insert
        for each row
        execute procedure account_inventory_update();
 
- drop materialized view account_ledger;
+drop materialized view account_ledger;
+alter table accounts drop column timestamp;
 
 
 -- :down
