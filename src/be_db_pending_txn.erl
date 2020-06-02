@@ -1,7 +1,7 @@
 -module(be_db_pending_txn).
 
 -include("be_db_worker.hrl").
--include("be_follower.hrl"). % for BIN utility
+-include("be_db_follower.hrl"). % for BIN utility
 
 -behavior(gen_server).
 -behavior(be_db_worker).

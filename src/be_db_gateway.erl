@@ -1,11 +1,11 @@
 -module(be_db_gateway).
 
--include("be_follower.hrl").
+-include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/0, load/6]).
+-export([init/1, load_block/6]).
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
@@ -59,7 +59,7 @@ prepare_conn(Conn) ->
 %% be_block_handler
 %%
 
-init() ->
+init(_) ->
     lager:info("Updating gateway_ledger table"),
     {ok, _, _} = ?PREPARED_QUERY(?S_REFRESH_ASYNC_GATEWAY_LEDGER, []),
 
@@ -67,7 +67,7 @@ init() ->
                                last_gateway_ledger_refresh=erlang:system_time(seconds)
                               })}.
 
-load(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
+load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     Active = blockchain_ledger_v1:active_gateways(Ledger),
     BlockHeight = blockchain_block_v1:height(Block),
     {Queries, Hashes} =
