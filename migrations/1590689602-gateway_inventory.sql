@@ -22,6 +22,7 @@ create table gateway_inventory (
 
 create index gateway_inventory_location_idx on gateway_inventory(location);
 create index gateway_inventory_first_block on gateway_inventory(first_block);
+create index gateway_inventory_owner on gateway_inventory(owner);
 
 insert into gateway_inventory
     select g.address, g.owner, g.location, g.alpha, g.beta, g.delta, g.score, g.last_poc_challenge, g.last_poc_onion_key_hash, g.witnesses, ga.first_block, ga.last_block from
