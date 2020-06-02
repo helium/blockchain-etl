@@ -138,8 +138,10 @@ to_actors(blockchain_txn_payment_v2, T) ->
     lists:foldl(ToActors, [{"payer", blockchain_txn_payment_v2:payer(T)}],
                 blockchain_txn_payment_v2:payments(T));
 to_actors(blockchain_txn_state_channel_open_v1, T) ->
-    %% NOTE: owner => sc_opener, renamed for better reasoning
-    [{"sc_opener", blockchain_txn_state_channel_open_v1:owner(T)} ];
+    %% TODO: In v1 state channels we're assuminig the the opener is
+    %% the payer of the DC in the state channel.
+    Opener = blockchain_txn_state_channel_open_v1:owner(T),
+    [{"sc_opener", Opener}, {"payer", Opener}];
 to_actors(blockchain_txn_state_channel_close_v1, T) ->
     %% NOTE: closer can be one of the clients of the state channel or the owner of the router
     %% if the state_channel expires
@@ -147,7 +149,13 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
                               Receiver = blockchain_state_channel_summary_v1:client_pubkeybin(Summary),
                               [{"packet_receiver", Receiver} | Acc]
                       end,
+    Closer = blockchain_txn_state_channel_close_v1:closer(T),
     lists:foldl(SummaryToActors,
-                [{"sc_closer", blockchain_txn_state_channel_close_v1:closer(T)} ],
+                %% TODO: In v1 state channels we're assuminig the the
+                %% closer is the payee of any remaining DC in the
+                %% state channel. This is not totally true since any
+                %% client in the state channel can cause it to close
+                %% to, but for v1 we expect this assumption to hold.
+                [{"sc_closer", Closer}, {"payee", Closer}],
                 blockchain_state_channel_v1:summaries(blockchain_txn_state_channel_close_v1:state_channel(T))
                 ).
