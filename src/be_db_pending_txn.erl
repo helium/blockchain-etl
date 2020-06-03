@@ -21,8 +21,9 @@
 -define(S_PENDING_TXN_LIST_INIT, "worker_pending_txn_list_init").
 -define(S_PENDING_TXN_LIST_RECEIVED, "worker_pending_txn_list_received").
 -define(S_PENDING_TXN_DELETE, "worker_pending_txn_delete").
--define(S_PENDING_TXN_FAIL, "worker_pending_txn_fail").
+-define(S_PENDING_TXN_SET_FAILED, "worker_pending_txn_set_failed").
 -define(S_PENDING_TXN_SET_PENDING, "worker_pending_txn_set_pending").
+-define(S_PENDING_TXN_SET_CLEARED, "worker_pending_txn_set_cleared").
 
 -define(SELECT_PENDING_TXN_BASE, "select t.hash, t.data from pending_transactions t ").
 
@@ -40,7 +41,7 @@ prepare_conn(Conn) ->
                     "DELETE from pending_transactions where hash = $1", []),
 
     {ok, S4} =
-        epgsql:parse(Conn, ?S_PENDING_TXN_FAIL,
+        epgsql:parse(Conn, ?S_PENDING_TXN_SET_FAILED,
                      ["UPDATE pending_transactions SET ",
                       "status = 'failed', ",
                       "failed_reason = $2 ",
@@ -55,7 +56,16 @@ prepare_conn(Conn) ->
                       "fields = $2",
                       "WHERE hash = $1"],
                      []),
+
     {ok, S6} =
+        epgsql:parse(Conn, ?S_PENDING_TXN_SET_CLEARED,
+                     ["UPDATE pending_transactions SET ",
+                      "status = 'cleared', ",
+                      "failed_reason = '', ",
+                      "WHERE hash = $1"],
+                     []),
+
+    {ok, S7} =
         epgsql:parse(Conn, ?S_PENDING_TXN_INSERT_ACTOR,
                      ["insert into pending_transaction_actors ",
                       "(actor, actor_role, transaction_hash) values ",
@@ -65,9 +75,10 @@ prepare_conn(Conn) ->
       ?S_PENDING_TXN_LIST_INIT => S1,
       ?S_PENDING_TXN_LIST_RECEIVED => S2,
       ?S_PENDING_TXN_DELETE => S3,
-      ?S_PENDING_TXN_FAIL => S4,
+      ?S_PENDING_TXN_SET_FAILED => S4,
       ?S_PENDING_TXN_SET_PENDING => S5,
-      ?S_PENDING_TXN_INSERT_ACTOR => S6
+      ?S_PENDING_TXN_SET_CLEARED => S6,
+      ?S_PENDING_TXN_INSERT_ACTOR => S7
      }.
 
 %%
@@ -138,11 +149,11 @@ handle_info({submit_pending, Stmt}, State=#state{}) ->
     erlang:send_after(PendingTime, self(), {submit_pending, ?S_PENDING_TXN_LIST_RECEIVED}),
     {noreply, State};
 handle_info({pending_result, Key, ok}, State) ->
-    {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_DELETE, [Key]),
+    {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_SET_CLEARED, [Key]),
     {noreply, State};
 handle_info({pending_result, Key, {error, Error}}, State) ->
     ErrorStr = lists:flatten(io_lib:format("~p", [Error])),
-    {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_FAIL, [Key, ErrorStr]),
+    {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_SET_FAILED, [Key, ErrorStr]),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -157,7 +168,7 @@ get_pending_txns(Stmt) ->
     {ok, lists:foldl(fun({Hash, BinTxn}, Acc) ->
                            case catch blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb) of
                                {'EXIT', _} ->
-                                   ?PREPARED_QUERY(?S_PENDING_TXN_FAIL, [Hash, "decoding_failure"]),
+                                   ?PREPARED_QUERY(?S_PENDING_TXN_SET_FAILED, [Hash, "decoding_failure"]),
                                    Acc;
                                Txn ->
                                    [{Hash, blockchain_txn:unwrap_txn(Txn)} | Acc]
