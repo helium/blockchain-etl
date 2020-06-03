@@ -101,11 +101,16 @@ handle_info({hackney_response, Ref,  {error, Error}}, State=#state{}) ->
                 end, Ref, State);
 handle_info({hackney_response, Ref, Bin}, State=#state{})  when is_binary(Bin) ->
     take_request(fun(Loc) ->
-                         case parse_geocode_results(jsone:decode(Bin)) of
-                             {ok, Results} ->
-                                 {ok, _} = store_geocode_result(Loc, Results);
-                             {error, Error} ->
-                                 lager:info("Failed to get geocode for ~p: ~p", [Loc, Error])
+                         try
+                             case parse_geocode_results(jsone:decode(Bin)) of
+                                 {ok, Results} ->
+                                     {ok, _} = store_geocode_result(Loc, Results);
+                                 {error, Error} ->
+                                     lager:info("Failed to get geocode for ~p: ~p", [Loc, Error])
+                             end
+                         catch
+                             What:Why ->
+                                 lager:info("Failed to get geocode for ~p: ~p", [Loc, {What, Why}])
                          end
                  end, Ref, State);
 

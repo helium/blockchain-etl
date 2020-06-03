@@ -51,7 +51,8 @@ BEGIN
        last_poc_challenge = EXCLUDED.last_poc_challenge,
        last_poc_onion_key_hash = EXCLUDED.last_poc_onion_key_hash,
        witnesses = EXCLUDED.witnesses,
-       last_block = EXCLUDED.block;
+       last_block = EXCLUDED.last_block;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
