@@ -53,7 +53,7 @@ prepare_conn(Conn) ->
                      ["UPDATE pending_transactions SET ",
                       "status = 'pending', ",
                       "failed_reason = '', ",
-                      "fields = $2",
+                      "fields = $2 ",
                       "WHERE hash = $1"],
                      []),
 
@@ -61,7 +61,7 @@ prepare_conn(Conn) ->
         epgsql:parse(Conn, ?S_PENDING_TXN_SET_CLEARED,
                      ["UPDATE pending_transactions SET ",
                       "status = 'cleared', ",
-                      "failed_reason = '', ",
+                      "failed_reason = '' ",
                       "WHERE hash = $1"],
                      []),
 
