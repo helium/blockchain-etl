@@ -74,7 +74,6 @@ handle_cast(Msg, State) ->
 
 handle_info(check_locations, State=#state{requests=Requests}) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_UNKNOWN_LOCATION_LIST, []),
-    InitialOutstanding = map_size(Requests),
     %% Ignore already outstanding requests
     FilteredResults = lists:filter(fun({L}) -> not maps:is_key(L, Requests) end, Results),
     NewReqs = lists:foldl(fun({L}, Acc) ->
@@ -86,9 +85,11 @@ handle_info(check_locations, State=#state{requests=Requests}) ->
                                           Acc
                                   end
                           end, Requests, FilteredResults),
-    NewOutstanding = map_size(NewReqs),
-    lager:info("Total outstanding geocoder requests: ~p (added: ~p)",
-               [NewOutstanding, NewOutstanding - InitialOutstanding]),
+    case length(FilteredResults) > 0 of
+        true -> lager:info("Added geocoder requests: ~p (total ~p)",
+                           [length(FilteredResults), maps:size(NewReqs)]);
+        false -> ok
+    end,
     {noreply, State#state{requests=maybe_check_locations(NewReqs)}};
 handle_info({hackney_response, Ref,  {status, Status, Reason}}, State=#state{}) when Status /= 200 ->
     take_request(fun(Loc) ->
