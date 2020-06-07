@@ -26,7 +26,7 @@
 prepare_conn(Conn) ->
     {ok, S1} =
         epgsql:parse(Conn, ?S_INSERT_GATEWAY,
-                     ["insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses) select ",
+                     ["insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce) select ",
                       "$1 as block, ",
                       "$2 as address, ",
                       "$3 as owner, ",
@@ -37,7 +37,8 @@ prepare_conn(Conn) ->
                       "$8 as score, ",
                       "$9 as last_poc_challenge, ",
                       "$10 as last_poc_onion_key_hash, ",
-                      "$11 as witnesses;"],
+                      "$11 as witnesses, ",
+                      "$12 as nonce;"],
                       []),
 
     #{
@@ -82,7 +83,8 @@ q_insert_gateway(BlockHeight, Address, GW, Ledger, Queries, #state{}) ->
          Score,
          ?MAYBE_UNDEFINED(blockchain_ledger_gateway_v2:last_poc_challenge(GW)),
          ?MAYBE_B64(blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW)),
-         witnesses_to_json(blockchain_ledger_gateway_v2:witnesses(GW))
+         witnesses_to_json(blockchain_ledger_gateway_v2:witnesses(GW)),
+         blockchain_ledger_gateway_v2:nonce(GW)
         ],
     [{?S_INSERT_GATEWAY, Params} | Queries].
 
@@ -105,12 +107,13 @@ witness_to_json(Witness) ->
 -spec init_gateway_cache(#state{}) -> #state{}.
 init_gateway_cache(State=#state{}) ->
     lager:info("Constructing gateway cache"),
-    {ok, _, GWList} = ?EQUERY("select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses from gateway_inventory", []),
+    {ok, _, GWList} = ?EQUERY("select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce from gateway_inventory", []),
     Result = maps:from_list(lists:map(fun(Entry={Address,
                                                  _Owner, _Location,
                                                  _Alpha, _Beta, _Delta,
                                                  _LastPocChallenge, _LastPocOnionKeyHash,
-                                                 _Witnesses}) ->
+                                                 _Witnesses,
+                                                 _Nonce}) ->
                                               GWHash = mk_gateway_hash({db, Entry}),
                                               {?B58_TO_BIN(Address), GWHash}
                                       end, GWList)),
@@ -150,7 +153,8 @@ gateway_changed(Key, GW, Gateways) ->
          delta :: integer(),
          last_poc_challenge :: undefined | non_neg_integer(),
          last_poc_onion_hash :: undefined | binary(),
-         witnesses :: [#gateway_witness{}]
+         witnesses :: [#gateway_witness{}],
+         nonce :: pos_integer()
         }).
 
 mk_gateway_witness(Key, {db, #{
@@ -189,7 +193,7 @@ mk_gateway_witnesses({chain, Witnesses}) ->
 mk_gateway({db, {_Address, Owner, Location,
                  Alpha, Beta, Delta,
                  LastPocChallenge, LastPocOnionKeyHash,
-                 Witnesses}}) ->
+                 Witnesses, Nonce}}) ->
     #gateway{
        owner = ?B58_TO_BIN(Owner),
        location = ?MAYBE_FN(fun(Bin) -> h3:from_string(binary_to_list(Bin)) end,  Location),
@@ -199,7 +203,8 @@ mk_gateway({db, {_Address, Owner, Location,
        last_poc_challenge = ?MAYBE_UNDEFINED(LastPocChallenge),
        last_poc_onion_hash = ?MAYBE_UNDEFINED(LastPocOnionKeyHash),
 
-       witnesses = mk_gateway_witnesses({db, Witnesses})
+       witnesses = mk_gateway_witnesses({db, Witnesses}),
+       nonce = Nonce
       };
 mk_gateway({chain, GW}) ->
     #gateway{
@@ -211,5 +216,6 @@ mk_gateway({chain, GW}) ->
        last_poc_challenge = blockchain_ledger_gateway_v2:last_poc_challenge(GW),
        last_poc_onion_hash = blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW),
 
-       witnesses = mk_gateway_witnesses({chain, blockchain_ledger_gateway_v2:witnesses(GW)})
+       witnesses = mk_gateway_witnesses({chain, blockchain_ledger_gateway_v2:witnesses(GW)}),
+       nonce = blockchain_ledger_gateway_v2:nonce(GW)
       }.
