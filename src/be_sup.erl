@@ -98,6 +98,7 @@ init([]) ->
        ?WORKER(db_follower,
                blockchain_follower, [[{follower_module, {be_db_follower, [{base_dir, BaseDir}]}}]]),
        ?WORKER(be_db_pending_txn, []),
-       ?WORKER(be_db_geocoder, [])
+       ?WORKER(be_db_geocoder, []),
+       ?WORKER(be_db_gateway_status, [])
       ]}
     }.
