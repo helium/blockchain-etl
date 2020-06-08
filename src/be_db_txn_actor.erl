@@ -158,4 +158,6 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
                 %% to, but for v1 we expect this assumption to hold.
                 [{"sc_closer", Closer}, {"payee", Closer}],
                 blockchain_state_channel_v1:summaries(blockchain_txn_state_channel_close_v1:state_channel(T))
-                ).
+               );
+to_actors(blockchain_txn_price_oracle_v1, T) ->
+    [{"oracle", blockchain_txn_price_oracle_v1:public_key(T)}].
