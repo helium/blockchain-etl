@@ -47,7 +47,7 @@ running `make release`:
 wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
 sudo dpkg -i erlang-solutions_1.0_all.deb
 sudo apt-get update
-sudo apt install esl-erlang cmake libsodium-dev libssl-dev build-essential
+sudo apt install esl-erlang=1:22.3.4.1-1 cmake libsodium-dev libssl-dev build-essential
 ```
 
 ## WARNING
