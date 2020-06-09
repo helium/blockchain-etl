@@ -40,7 +40,7 @@ prepare_conn(Conn) ->
 
 init(_) ->
     {Block, LastPrice} = case ?EQUERY("select block, price from oracle_prices order by block desc limit 1", []) of
-                    {ok, _, []} -> 0;
+                    {ok, _, []} -> {1, 0};
                     {ok, _, [{B,P}]} -> {B,P}
                 end,
     lager:info("Oracle price set at: ~p to: ~p", [Block, LastPrice]),
