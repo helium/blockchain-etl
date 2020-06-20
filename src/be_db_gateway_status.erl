@@ -227,7 +227,7 @@ peer_recent_challenger(Address, Ledger) ->
             case blockchain_ledger_gateway_v2:last_poc_challenge(GWInfo) of
                 undefined ->
                     false;
-                LastChallenge when LastChallenge >= (Height - PoCInterval)->
+                LastChallenge when LastChallenge >= (Height - (2 * PoCInterval)) ->
                     true;
                 _ ->
                     false
