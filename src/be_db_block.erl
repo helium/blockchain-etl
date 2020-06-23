@@ -39,8 +39,11 @@ prepare_conn(Conn) ->
 
     {ok, S1} =
         epgsql:parse(Conn, ?S_INSERT_BLOCK,
-                     "insert into blocks (height, time, timestamp, prev_hash, block_hash, transaction_count, hbbft_round, election_epoch, epoch_start, rescue_signature, snapshot_hash) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);",
-                     []),
+                     ["insert into blocks ",
+                      "(created_at, height, time, timestamp, prev_hash, block_hash, transaction_count, ",
+                      " hbbft_round, election_epoch, epoch_start, rescue_signature, snapshot_hash) ",
+                      "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);"
+                     ], []),
     {ok, S2} =
         epgsql:parse(Conn, ?S_INSERT_BLOCK_SIG,
                      "insert into block_signatures (block, signer, signature) values ($1, $2, $3)",
@@ -97,7 +100,9 @@ q_insert_block(Hash, Block, Ledger, Queries, State=#state{base_secs=BaseSecs}) -
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     BlockTime = blockchain_block_v1:time(Block),
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
-    Params = [blockchain_block_v1:height(Block),
+    CurrentDate = calendar:universal_time(),
+    Params = [CurrentDate,
+              blockchain_block_v1:height(Block),
               BlockTime,
               BlockDate,
               ?BIN_TO_B64(blockchain_block_v1:prev_hash(Block)),
