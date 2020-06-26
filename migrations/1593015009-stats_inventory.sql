@@ -3,16 +3,16 @@
 
 create table stats_inventory (
        name TEXT NOT NULL,
-       value BIGINT NOT NULL,
+       value BIGINT NOT NULL DEFAULT 0,
 
        PRIMARY KEY (name)
 );
 
 insert into stats_inventory (name, value) values
-       ('blocks', (select max(height) from blocks)),
-       ('hotspots', (select count(*) from gateway_inventory)),
-       ('consensus_groups', (select count(*) from transactions where type = 'consensus_group_v1')),
-       ('challenges', (select count(*) from transactions where type = 'poc_receipts_v1'));
+       ('blocks', (select COALESCE(max(height), 0) from blocks)),
+       ('hotspots', (select COALESCE(count(*), 0) from gateway_inventory)),
+       ('consensus_groups', (select COALESCE(count(*), 0) from transactions where type = 'consensus_group_v1')),
+       ('challenges', (select COALESCE(count(*), 0) from transactions where type = 'poc_receipts_v1'));
 
 -- :down
 
