@@ -20,6 +20,9 @@
 
 -define(S_VARS_INSERT, "vars_insert").
 -define(S_VARS_DELETE, "vars_delete").
+-define(S_ORACLE_LIST, "oracle_list").
+-define(S_ORACLE_INSERT, "oracle_insert").
+-define(S_ORACLE_DELETE, "oracle_delete").
 
 %%
 %% be_db_worker
@@ -39,9 +42,28 @@ prepare_conn(Conn) ->
                      ["delete from vars_inventory where name = $1"
                      ], []),
 
+    {ok, S3} =
+        epgsql:parse(Conn, ?S_ORACLE_INSERT,
+                     ["insert into oracle_inventory (address) values ($1) "
+                      "on conflict(address) do nothing"
+                     ], []),
+
+    {ok, S4} =
+        epgsql:parse(Conn, ?S_ORACLE_DELETE,
+                     ["delete from oracle_inventory where address = $1"
+                     ], []),
+
+    {ok, S5} =
+        epgsql:parse(Conn, ?S_ORACLE_LIST,
+                     ["select address from oracle_inventory"
+                     ], []),
+
     #{
       ?S_VARS_INSERT => S1,
-      ?S_VARS_DELETE => S2
+      ?S_VARS_DELETE => S2,
+      ?S_ORACLE_INSERT => S3,
+      ?S_ORACLE_DELETE => S4,
+      ?S_ORACLE_LIST => S5
      }.
 
 
@@ -66,7 +88,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
                                        Unsets = blockchain_txn_vars_v1:unsets(Txn),
                                        lists:foldl(fun q_delete_var/2, Acc, Unsets)
                                end, [], Txns),
-    case UnsetQueries of
+    case Txns of
         [] -> [];
         _ ->
             Vars = blockchain_ledger_v1:snapshot_vars(Ledger),
@@ -85,6 +107,19 @@ encode_key(K) when is_atom(K) ->
 encode_key(K) when is_binary(K) ->
     K.
 
+q_insert_var({<<"price_oracle_public_keys">>=K, V}, Acc) ->
+    {ok, _, CurrentKeys} = ?PREPARED_QUERY(?S_ORACLE_LIST, []),
+    NewKeys = [?BIN_TO_B58(NK) || NK <- blockchain_utils:vars_keys_to_list(V)],
+    CurrentKeySet = sets:from_list(lists:map(fun({Key}) -> Key end, CurrentKeys)),
+    NewKeySet = sets:from_list(NewKeys),
+    Delete = sets:subtract(CurrentKeySet, NewKeySet),
+    Add = sets:subtract(NewKeySet, CurrentKeySet),
+    lager:info("DELETE: ~p", [sets:to_list(Delete)]),
+    lager:info("ADD: ~p", [sets:to_list(Add)]),
+    AddQueries = [{?S_ORACLE_INSERT, [Key]} || Key <- sets:to_list(Add)],
+    DeleteQueries = [{?S_ORACLE_DELETE, [Key]} || Key <- sets:to_list(Delete)],
+    [{?S_VARS_INSERT, [encode_key(K), <<"binary">>, ?BIN_TO_B64(V)]}
+    | AddQueries ++ DeleteQueries ++ Acc];
 q_insert_var({K, V}, Acc) when is_integer(V) ->
     [{?S_VARS_INSERT, [encode_key(K), <<"integer">>, integer_to_binary(V)]} | Acc];
 q_insert_var({K, V}, Acc) when is_float(V) ->
