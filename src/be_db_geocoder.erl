@@ -193,7 +193,7 @@ parse_geocode_results(#{ <<"results">> := [ #{ <<"address_components">> := Compo
 
 
 find_types([], _Components) ->
-    {<<"unknown">>, <<"unknown">>};
+    {undefined, undefined};
 find_types([Type | Tail], Components) ->
     %% Look for an entry in the components list that has the given
     %% Type in it's types list. If found extract and return the short
@@ -201,8 +201,8 @@ find_types([Type | Tail], Components) ->
     case lists:filtermap(fun(#{ <<"types">> := Types } = Entry) ->
                                  case lists:member(Type, Types) of
                                      false -> false;
-                                     true -> {true, {maps:get(<<"short_name">>, Entry, <<"unknown">>),
-                                                     maps:get(<<"long_name">>, Entry, <<"unknown">>)}}
+                                     true -> {true, {maps:get(<<"short_name">>, Entry, undefined),
+                                                     maps:get(<<"long_name">>, Entry, undefined)}}
                                  end
                          end, Components) of
         [] -> find_types(Tail, Components);
