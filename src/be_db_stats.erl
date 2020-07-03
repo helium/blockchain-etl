@@ -56,7 +56,7 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
     {Stats, Queries} =
         lists:foldl(fun(Name, {Stats, Acc}) ->
-                            Current = maps:get(Name, Stats, undefined),
+                            Current = maps:get(Name, Stats, 0),
                             case update(Name, Current, Block) of
                                 Current ->
                                     {Stats, Acc};
