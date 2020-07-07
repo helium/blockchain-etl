@@ -93,10 +93,19 @@ prepare_conn(Conn) ->
                      ], []),
     {ok, S2} =
         epgsql:parse(Conn, ?S_STATUS_INSERT,
-                     ["insert into gateway_status (address, online, gps, block) values ($1, $2, $3, $4) ",
+                     ["insert into gateway_status ",
+                      "(address, ",
+                      " online, ",
+                      " poc_interval, ",
+                      " last_challenge, ",
+                      " gps, ",
+                      " block",
+                      ") values ($1, $2, $3, $4, $5, $6) ",
                       "on conflict (address) do update ",
                       "set ",
                       "    online = EXCLUDED.online,",
+                      "    last_challenge = EXCLUDED.last_challenge,",
+                      "    poc_interval = EXCLUDED.poc_interval,",
                       "    gps = EXCLUDED.gps,",
                       "    block = EXCLUDED.block;"
                      ], []),
@@ -186,11 +195,14 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
                 try
                     true = ets:insert_new(Requests, {B58Address, self()}),
                     Address = ?B58_TO_BIN(B58Address),
-                    Online = peer_online(Address, PeerBook, Ledger),
+                    Online = peer_online(Address),
+                    PoCInterval = blockchain_utils:challenge_interval(Ledger),
+                    LastChallenge = peer_last_challenge(Address, Ledger),
                     GPS = peer_metadata(<<"gps_fix_quality">>, Address, PeerBook),
                     Block = peer_metadata(<<"height">>, Address, PeerBook),
 
-                    ?PREPARED_QUERY(?S_STATUS_INSERT, [B58Address, Online, GPS, Block])
+                    ?PREPARED_QUERY(?S_STATUS_INSERT,
+                                    [B58Address, Online, PoCInterval, LastChallenge, GPS, Block])
                 catch
                     What:Why ->
                         lager:info("Failed to update gateway status for ~p: ~p", [B58Address, {What, Why}])
@@ -218,20 +230,25 @@ peer_online(Address, PeerBook, Ledger) ->
             end
     end.
 
+
+-spec peer_last_challenge(libp2p_crypto:pubkey_bin(), blockchain_ledger_v1:ledger()) -> undefined | pos_integer().
+peer_last_challenge(Address, Ledger) ->
+    case blockchain_ledger_v1:find_gateway_info(Address, Ledger) of
+        {error, _} -> undefined;
+        {ok, GWInfo} -> blockchain_ledger_gateway_v2:last_poc_challenge(GWInfo)
+
+    end.
+
+
 peer_recent_challenger(Address, Ledger) ->
     {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
     PoCInterval = blockchain_utils:challenge_interval(Ledger),
-    case blockchain_ledger_v1:find_gateway_info(Address, Ledger) of
-        {error, _} -> false;
-        {ok, GWInfo} ->
-            case blockchain_ledger_gateway_v2:last_poc_challenge(GWInfo) of
-                undefined ->
-                    false;
-                LastChallenge when LastChallenge >= (Height - (2 * PoCInterval)) ->
-                    true;
-                _ ->
-                    false
-            end
+    case peer_last_challenge(Address, Ledger) of
+        undefined -> false;
+        LastChallenge when LastChallenge >= (Height - (2 * PoCInterval)) ->
+            true;
+        _ ->
+            false
     end.
 
 
