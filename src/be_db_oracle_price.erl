@@ -19,6 +19,8 @@
 
 
 -define(S_ORACLE_PRICE_INSERT, "oracle_price_insert").
+-define(S_ORACLE_PRICE_PREDICTION_INSERT, "oracle_price_prediction_insert").
+-define(S_ORACLE_PRICE_PREDICTION_DELETE_ALL, "oracle_price_prediction_delete").
 
 %%
 %% be_db_worker
@@ -29,8 +31,21 @@ prepare_conn(Conn) ->
         epgsql:parse(Conn, ?S_ORACLE_PRICE_INSERT,
                      ["insert into oracle_prices (block, price) values ($1, $2)"
                      ], []),
+
+    {ok, S2} =
+        epgsql:parse(Conn, ?S_ORACLE_PRICE_PREDICTION_INSERT,
+                     ["insert into oracle_price_predictions (price, time) values ($1, $2)"
+                     ], []),
+
+    {ok, S3} =
+        epgsql:parse(Conn, ?S_ORACLE_PRICE_PREDICTION_DELETE_ALL,
+                     ["delete from oracle_price_predictions"
+                     ], []),
+
     #{
-      ?S_ORACLE_PRICE_INSERT => S1
+      ?S_ORACLE_PRICE_INSERT => S1,
+      ?S_ORACLE_PRICE_PREDICTION_INSERT => S2,
+      ?S_ORACLE_PRICE_PREDICTION_DELETE_ALL => S3
      }.
 
 
@@ -47,19 +62,42 @@ init(_) ->
     {ok, #state{last_oracle_price=LastPrice}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{last_oracle_price=CurrentPrice}) ->
-    case blockchain_ledger_v1:current_oracle_price(Ledger) of
-        {error, Error} ->
-            lager:info("Could not get current oracle price: ~p", [Error]),
-            {ok, State};
-        {ok, CurrentPrice} ->
-            {ok, State};
-        {ok, Price} ->
-            BlockHeight = blockchain_block_v1:height(Block),
-            lager:info("Adjusting oracle at: ~p to: ~p", [BlockHeight, Price]),
-            Queries = [q_insert_oracle_price(BlockHeight, Price)],
-            ok = ?BATCH_QUERY(Conn, Queries),
-            {ok, State#state{last_oracle_price=Price}}
-    end.
+    UpdateOraclePrices =
+        fun(Queries, AccState) ->
+                case blockchain_ledger_v1:current_oracle_price(Ledger) of
+                    {error, Error} ->
+                        lager:info("Could not get current oracle price: ~p", [Error]),
+                        {Queries, AccState};
+                    {ok, CurrentPrice} ->
+                        {Queries, AccState};
+                    {ok, Price} ->
+                        BlockHeight = blockchain_block_v1:height(Block),
+                                        lager:info("Adjusting oracle at: ~p to: ~p", [BlockHeight, Price]),
+                        {[q_insert_oracle_price(BlockHeight, Price) | Queries],
+                         State#state{last_oracle_price=Price}}
+                end
+        end,
+    UpdateOraclePredictions =
+        fun(Queries, AccState) ->
+                NextPrices = blockchain_ledger_v1:next_oracle_prices(blockchain_worker:blockchain(), Ledger),
+                DeleteQueries = [{?S_ORACLE_PRICE_PREDICTION_DELETE_ALL, []}],
+                InsertQueries = [{?S_ORACLE_PRICE_PREDICTION_INSERT, [Price, Time]}
+                                 || {Price, Time} <- NextPrices],
+                {DeleteQueries ++ InsertQueries ++ Queries,
+                 AccState}
+        end,
+    {Queries, NewState} =
+        lists:foldl(fun(Fun, {Q, S}) ->
+                            Fun(Q, S)
+                    end,
+                    {[], State},
+                    [
+                     UpdateOraclePrices,
+                     UpdateOraclePredictions
+                     ]
+                   ),
+    ok = ?BATCH_QUERY(Conn, Queries),
+    {ok, NewState}.
 
 
 q_insert_oracle_price(BlockHeight, Price) ->
