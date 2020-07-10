@@ -114,8 +114,6 @@ q_insert_var({<<"price_oracle_public_keys">>=K, V}, Acc) ->
     NewKeySet = sets:from_list(NewKeys),
     Delete = sets:subtract(CurrentKeySet, NewKeySet),
     Add = sets:subtract(NewKeySet, CurrentKeySet),
-    lager:info("DELETE: ~p", [sets:to_list(Delete)]),
-    lager:info("ADD: ~p", [sets:to_list(Add)]),
     AddQueries = [{?S_ORACLE_INSERT, [Key]} || Key <- sets:to_list(Add)],
     DeleteQueries = [{?S_ORACLE_DELETE, [Key]} || Key <- sets:to_list(Delete)],
     [{?S_VARS_INSERT, [encode_key(K), <<"binary">>, ?BIN_TO_B64(V)]}
