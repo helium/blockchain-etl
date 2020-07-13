@@ -67,6 +67,7 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
                     end, {State#state.stats, []},
                     [
                      <<"blocks">>,
+                     <<"transactions">>,
                      <<"hotspots">>,
                      <<"consensus_groups">>,
                      <<"challenges">>
@@ -79,6 +80,8 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State=#state{}) ->
 -spec update(Name::binary(), Current::integer(), Block::blockchain_block:block()) -> New::integer().
 update(<<"blocks">>, _Current, Block) ->
     blockchain_block:height(Block);
+update(<<"transactions">>, Current, Block) ->
+    Current + length(blockchain_block:transactions(Block));
 update(<<"hotspots">>, Current, Block) ->
     case lists:any(fun(Txn) ->
                            blockchain_txn:type(Txn) == blockchain_txn_add_gateway_v1
