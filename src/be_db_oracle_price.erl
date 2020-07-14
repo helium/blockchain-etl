@@ -2,6 +2,7 @@
 
 -include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
+-include_lib("blockchain/include/blockchain_vars.hrl").
 
 
 -behavior(be_db_worker).
@@ -79,12 +80,16 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{last_oracle_price=Cur
         end,
     UpdateOraclePredictions =
         fun(Queries, AccState) ->
-                NextPrices = blockchain_ledger_v1:next_oracle_prices(blockchain_worker:blockchain(), Ledger),
-                DeleteQueries = [{?S_ORACLE_PRICE_PREDICTION_DELETE_ALL, []}],
-                InsertQueries = [{?S_ORACLE_PRICE_PREDICTION_INSERT, [Price, Time]}
-                                 || {Price, Time} <- NextPrices],
-                {DeleteQueries ++ InsertQueries ++ Queries,
-                 AccState}
+                case blockchain:config(?price_oracle_refresh_interval, Ledger) of
+                    {ok, _} ->
+                        NextPrices = blockchain_ledger_v1:next_oracle_prices(blockchain_worker:blockchain(), Ledger),
+                        DeleteQueries = [{?S_ORACLE_PRICE_PREDICTION_DELETE_ALL, []}],
+                        InsertQueries = [{?S_ORACLE_PRICE_PREDICTION_INSERT, [Price, Time]}
+                                         || {Price, Time} <- NextPrices],
+                        {DeleteQueries ++ InsertQueries ++ Queries, AccState};
+                    _ ->
+                        {Queries, AccState}
+                end
         end,
     {Queries, NewState} =
         lists:foldl(fun(Fun, {Q, S}) ->
