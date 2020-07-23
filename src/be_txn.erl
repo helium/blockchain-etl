@@ -47,12 +47,16 @@ to_json(<<"state_channel_close_v1">>, Json=#{ state_channel := SCJson } , Ledger
 
     UpdateSummary =
         fun(Summary=#{ client := Client }) ->
-                {ok, ClientInfo} = blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Client), Ledger),
-                ClientLoc = blockchain_ledger_gateway_v2:location(ClientInfo),
-                Summary#{
-                         owner => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(ClientInfo)),
-                         location => ?MAYBE_H3(ClientLoc)
-                        }
+                case blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Client), Ledger) of
+                    {error, _} -> Summary;
+                    {ok, ClientInfo} ->
+                        blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Client), Ledger),
+                        ClientLoc = blockchain_ledger_gateway_v2:location(ClientInfo),
+                        Summary#{
+                                 owner => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(ClientInfo)),
+                                 location => ?MAYBE_H3(ClientLoc)
+                                }
+                end
         end,
 
     Json#{
