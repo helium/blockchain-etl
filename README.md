@@ -18,13 +18,14 @@ listening for new block events.
   the `.env` file needs to exist and have `CREATEDB` permissions.
 
 * Run `make release` in the top level folder
-* Run `make reset` to initialize the database and reset the
-  ledger. You will need to run a make reset every time the schema or
-  code importing the blockchain is changed.
+* Run `make reset` to initialize the database and reset the ledger. You will
+  need to run a make reset every time the release notes indicate to do so. This
+  should be very rare. .
 
-  Running a `make reset` will keep the existing downloaded blocks but
-  _replay_ the ledger so the application can re-play the blocks into
-  the database
+  Running a `make reset` will keep the existing downloaded blocks but _replay_
+  the ledger so the application can re-play the blocks into the database. Again,
+  only do this when indicated in the release notes since a replay can take a
+  long time.
 * Run `make start` to start the application. Logs will be at
   `_build/dev/rel/blockchain_etl/log/*`.
 
@@ -53,10 +54,13 @@ sudo apt install esl-erlang=1:22.3.4.1-1 cmake libsodium-dev libssl-dev build-es
 ## WARNING
 
 Schema changes _will_ happen in this repo as we flesh out the
-corresponding APIs. A schema change _will_ require a `make reset` to
+corresponding APIs. A schema change _may_ require a `make reset` to
 reset the database and associated blockchain ledger. On a reset the
 blockchain store itself is not affected but the ledger is replayed
 which allows the application to reload the database.
+
+**NOTE**: Please refer to the release notes for each release. Unless otherwise
+indicated you should _not_ do a `make reset`
 
 ## IN PROGRESS
 
