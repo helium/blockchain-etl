@@ -39,8 +39,8 @@ You may see an error similar to the following during initial sync:
 
 Check [this](https://superuser.com/a/443168) Superuser answer for a workaround
 on macOS and
-(here)[https://superuser.com/questions/1200539/cannot-increase-open-file-limit-past-4096-ubuntu]
-for some instructions on Ubuntu.
+(here)[https://docs.riak.com/riak/kv/latest/using/performance/open-files-limit/index.html]
+for some instructions on various Linux distributions.
 
 ### Installing Ubuntu Required Packages
 
