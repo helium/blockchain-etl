@@ -32,12 +32,15 @@ listening for new block events.
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
 
-#### macOS Note
+#### Note
 You may see an error similar to the following during initial sync:
 
 `{error,"IO error: While open a file for appending: data/blockchain.db/020311.sst: Too many open files"}`
 
-Check [this](https://superuser.com/a/443168) Superuser answer for a workaround.
+Check [this](https://superuser.com/a/443168) Superuser answer for a workaround
+on macOS and
+(here)[https://superuser.com/questions/1200539/cannot-increase-open-file-limit-past-4096-ubuntu]
+for some instructions on Ubuntu.
 
 ### Installing Ubuntu Required Packages
 
