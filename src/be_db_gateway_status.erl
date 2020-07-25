@@ -93,7 +93,7 @@ prepare_conn(Conn) ->
                      ], []),
     {ok, S2} =
         epgsql:parse(Conn, ?S_STATUS_INSERT,
-                     ["insert into gateway_status ",
+                     ["insert into gateway_status as status ",
                       "(address, ",
                       " online, ",
                       " poc_interval, ",
@@ -106,8 +106,8 @@ prepare_conn(Conn) ->
                       "    online = EXCLUDED.online,",
                       "    last_challenge = EXCLUDED.last_challenge,",
                       "    poc_interval = EXCLUDED.poc_interval,",
-                      "    gps = EXCLUDED.gps,",
-                      "    block = EXCLUDED.block;"
+                      "    gps = coalesce(status.gps, EXCLUDED.gps),",
+                      "    block = coalesce(status.block, EXCLUDED.block);"
                      ], []),
 
     #{
