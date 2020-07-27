@@ -81,13 +81,25 @@ to_actors(blockchain_txn_security_exchange_v1, T) ->
 to_actors(blockchain_txn_consensus_group_v1, T) ->
     [{"consensus_member", M} || M <- blockchain_txn_consensus_group_v1:members(T)];
 to_actors(blockchain_txn_add_gateway_v1, T) ->
+    Owner = blockchain_txn_add_gateway_v1:owner(T),
+    Payer = case blockchain_txn_add_gateway_v1:payer(T) of
+                undefined -> Owner;
+                <<>> -> Owner;
+                P -> P
+            end,
     [{"gateway", blockchain_txn_add_gateway_v1:gateway(T)},
-     {"owner", blockchain_txn_add_gateway_v1:owner(T)},
-     {"payer", blockchain_txn_add_gateway_v1:payer(T)} ];
+     {"owner", Owner},
+     {"payer", Payer} ];
 to_actors(blockchain_txn_assert_location_v1, T) ->
+    Owner = blockchain_txn_assert_location_v1:owner(T),
+    Payer = case blockchain_txn_assert_location_v1:payer(T) of
+                undefined -> Owner;
+                <<>> -> Owner;
+                P -> P
+            end,
     [{"gateway", blockchain_txn_assert_location_v1:gateway(T)},
-     {"owner", blockchain_txn_assert_location_v1:owner(T)},
-     {"payer", blockchain_txn_assert_location_v1:payer(T)} ];
+     {"owner", Owner},
+     {"payer", Payer} ];
 to_actors(blockchain_txn_create_htlc_v1, T) ->
     [{"payer", blockchain_txn_create_htlc_v1:payer(T)},
      {"payee", blockchain_txn_create_htlc_v1:payee(T)},
