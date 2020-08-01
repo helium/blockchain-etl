@@ -275,7 +275,7 @@ peer_gps_fix_quality(Address, PeerBook) ->
 peer_height(Address, PeerBook) ->
     case peer_metadata(<<"height">>, Address, PeerBook) of
         undefined -> undefined;
-        Height when is_integer(Height) and Height > 0 -> Height;
+        Height when is_integer(Height) -> Height;
         Other ->
             lager:warning("Invalid block height for gateway ~s: ~p", [?BIN_TO_B58(Address), Other]),
             undefined
