@@ -99,15 +99,17 @@ prepare_conn(Conn) ->
                       " poc_interval, ",
                       " last_challenge, ",
                       " gps, ",
-                      " block",
-                      ") values ($1, $2, $3, $4, $5, $6) ",
+                      " block, ",
+                      " peer_timestamp "
+                      ") values ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000)) ",
                       "on conflict (address) do update ",
                       "set ",
                       "    online = EXCLUDED.online,",
                       "    last_challenge = EXCLUDED.last_challenge,",
                       "    poc_interval = EXCLUDED.poc_interval,",
                       "    gps = coalesce(status.gps, EXCLUDED.gps),",
-                      "    block = coalesce(status.block, EXCLUDED.block);"
+                      "    block = coalesce(status.block, EXCLUDED.block),"
+                      "    peer_timestamp = coalesce(status.peer_timestamp, EXCLUDED.peer_timestamp);"
                      ], []),
 
     #{
@@ -200,9 +202,10 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
                     LastChallenge = peer_last_challenge(Address, Ledger),
                     GPS = peer_metadata(<<"gps_fix_quality">>, Address, PeerBook),
                     Block = peer_metadata(<<"height">>, Address, PeerBook),
+                    PeerTime = peer_time(Address, PeerBook),
 
                     ?PREPARED_QUERY(?S_STATUS_INSERT,
-                                    [B58Address, Online, PoCInterval, LastChallenge, GPS, Block])
+                                    [B58Address, Online, PoCInterval, LastChallenge, GPS, Block, PeerTime])
                 catch
                     What:Why ->
                         lager:info("Failed to update gateway status for ~p: ~p", [B58Address, {What, Why}])
@@ -251,6 +254,13 @@ peer_recent_challenger(Address, Ledger) ->
             false
     end.
 
+peer_time(Address, PeerBook) ->
+    case libp2p_peerbook:get(PeerBook, Address) of
+        {ok, Peer} ->
+            libp2p_peer:timestamp(Peer);
+        {error, _} ->
+            undefined
+    end.
 
 peer_metadata(Key, Address, PeerBook) ->
     case libp2p_peerbook:get(PeerBook, Address) of
