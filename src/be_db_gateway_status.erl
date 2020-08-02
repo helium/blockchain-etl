@@ -107,9 +107,9 @@ prepare_conn(Conn) ->
                       "    online = EXCLUDED.online,",
                       "    last_challenge = EXCLUDED.last_challenge,",
                       "    poc_interval = EXCLUDED.poc_interval,",
-                      "    gps = coalesce(status.gps, EXCLUDED.gps),",
-                      "    block = coalesce(status.block, EXCLUDED.block),"
-                      "    peer_timestamp = coalesce(status.peer_timestamp, EXCLUDED.peer_timestamp);"
+                      "    gps = coalesce(EXCLUDED.gps, status.gps),",
+                      "    block = coalesce(EXCLUDED.block, status.block),"
+                      "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp);"
                      ], []),
 
     #{
