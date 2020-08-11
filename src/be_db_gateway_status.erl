@@ -40,6 +40,9 @@
 -define(MAX_REQUEST_RATE, 200).
 %% A peer is considered stale if it's peerbook entry is more than an hour old
 -define(STALE_PEER_TIME, 3600000).
+%% A peer is recently added if it's (first) add_gateway transaction is in the
+%% last "24 hours" in blocks (60 blocks per hour assumed)
+-define(PEER_RECENTLY_ADDED_BLOCKS, 60 * 24).
 
 %%
 %% Utility API
@@ -80,6 +83,7 @@ adjust_request_rate() ->
 
 -define(S_STATUS_UNKNOWN_LIST, "status_unknown_list").
 -define(S_STATUS_INSERT, "status_insert").
+-define(S_PEER_ADDED, "peer_added").
 
 prepare_conn(Conn) ->
     {ok, S1} =
@@ -111,10 +115,18 @@ prepare_conn(Conn) ->
                       "    block = coalesce(EXCLUDED.block, status.block),"
                       "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp);"
                      ], []),
-
+    {ok, S3} =
+        epgsql:parse(Conn, ?S_PEER_ADDED,
+                     ["select block ",
+                      "from transaction_actors ",
+                      "where actor = $1 and actor_role = 'gateway' ",
+                      "order by block ",
+                      "limit 1"
+                      ], []),
     #{
       ?S_STATUS_UNKNOWN_LIST => S1,
-      ?S_STATUS_INSERT => S2
+      ?S_STATUS_INSERT => S2,
+      ?S_PEER_ADDED => S3
      }.
 
 %%
@@ -223,16 +235,31 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
 -spec peer_online(libp2p_crypto:pubkey_bin(), libp2p_peerbook:peerbook(), blockchain:ledger()) -> binary().
 peer_online(Address, PeerBook, Ledger) ->
     Ledger = blockchain:ledger(),
-    case peer_recent_challenger(Address, Ledger) of
+    case peer_recently_added(Address, Ledger) of
         true -> <<"online">>;
         false ->
-            PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
-            case peer_stale(Address, PeerBook, true) of
-                true -> <<"offline">>;
-                false -> <<"online">>
+            case peer_recent_challenger(Address, Ledger) of
+                true -> <<"online">>;
+                false ->
+                    PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
+                    case peer_stale(Address, PeerBook, true) of
+                        true -> <<"offline">>;
+                        false -> <<"online">>
+                    end
             end
     end.
 
+
+-spec peer_recently_added(libp2p_crypto:pubkey_bin(), blockchain:ledger()) -> boolean().
+peer_recently_added(Address, Ledger) ->
+    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
+    {ok, _, [{AddedHeight}]} = ?PREPARED_QUERY(?S_PEER_ADDED, [?BIN_TO_B58(Address)]),
+    case Height - AddedHeight of
+        V when V =< ?PEER_RECENTLY_ADDED_BLOCKS ->
+            true;
+        _ ->
+            false
+    end.
 
 -spec peer_last_challenge(libp2p_crypto:pubkey_bin(), blockchain_ledger_v1:ledger()) -> undefined | pos_integer().
 peer_last_challenge(Address, Ledger) ->
