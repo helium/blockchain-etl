@@ -138,7 +138,8 @@ to_actors(blockchain_txn_rewards_v1, T) ->
     {Payees, Gateways} = lists:foldl(ToActors, {[], []}, blockchain_txn_rewards_v1:rewards(T)),
     lists:usort(Payees) ++ lists:usort(Gateways);
 to_actors(blockchain_txn_token_burn_v1, T) ->
-    [{"payer", blockchain_txn_token_burn_v1:payer(T)} ];
+    [{"payer", blockchain_txn_token_burn_v1:payer(T)},
+     {"payee", blockchain_txn_token_burn_v1:payee(T)} ];
 to_actors(blockchain_txn_dc_coinbase_v1, T) ->
     [{"payee", blockchain_txn_dc_coinbase_v1:payee(T)} ];
 to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T) ->
