@@ -50,8 +50,10 @@ prepare_conn(Conn) ->
                      []),
     {ok, S3} =
         epgsql:parse(Conn, ?S_INSERT_TXN,
-                     "insert into transactions (block, time, hash, type, fields) values ($1, $2, $3, $4, $5)",
-                     []),
+                     ["insert into transactions (block, time, hash, type, fields) values ($1, $2, $3, $4, $5) ",
+                      "on conflict do nothing"
+                      ], []),
+
 
     #{
       ?S_BLOCK_HEIGHT => S0,
@@ -115,7 +117,9 @@ q_insert_block(Hash, Block, Ledger, Queries, State=#state{base_secs=BaseSecs}) -
               ?MAYBE_B64(blockchain_block_v1:snapshot_hash(Block))
              ],
     [{?S_INSERT_BLOCK, Params}
-     | q_insert_signatures(Block, q_insert_transactions(Block, Queries, Ledger, State), State)].
+     | q_insert_signatures(Block,
+                           q_insert_transactions(Block, Queries, Ledger, State),
+                           State)].
 
 q_insert_signatures(Block, Queries, #state{}) ->
     Height = blockchain_block_v1:height(Block),

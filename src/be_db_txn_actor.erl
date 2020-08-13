@@ -25,8 +25,9 @@ prepare_conn(Conn) ->
     {ok, S1} =
         epgsql:parse(Conn, ?S_INSERT_ACTOR,
                      ["insert into transaction_actors (block, actor, actor_role, transaction_hash) ",
-                      "values ($1, $2, $3, $4)"],
-                     []),
+                      "values ($1, $2, $3, $4) ",
+                      "on conflict do nothing"
+                     ], []),
 
     #{
       ?S_INSERT_ACTOR => S1
