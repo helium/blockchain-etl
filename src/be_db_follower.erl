@@ -26,7 +26,8 @@
          be_db_gateway,
          be_db_oracle_price,
          be_db_vars,
-         be_db_stats
+         be_db_stats,
+         be_db_reward
          ]).
 
 -record(state,
