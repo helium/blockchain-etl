@@ -2,11 +2,11 @@ name: Build
 
 on:
   push:
-    branches: [ community ]
+    branches: [ master ]
 
 jobs:
   build-and-push:
-    name: Build (Community)
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,7 +24,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
-          repository: mylarapp/blockchain-etl/blockchain-etl
+          repository: helium/blockchain-etl/blockchain-etl
           tag_with_ref: true
           tag_with_sha: true
           add_git_labels: true
