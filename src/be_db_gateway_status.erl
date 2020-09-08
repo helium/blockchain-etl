@@ -4,10 +4,12 @@
 -include("be_db_follower.hrl").
 
 -behaviour(gen_server).
+
 -beheviour(bh_db_worker).
 
 %% gen_server
 -define(SERVER, ?MODULE).
+
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -15,12 +17,14 @@
 -export([prepare_conn/1]).
 
 %% online status utilities
--export([request_rate/0,
-         peer_stale/1,
-         peer_recent_challenger/1,
-         peer_online/1,
-         peer_gps_fix_quality/1,
-         peer_height/1]).
+-export([
+    request_rate/0,
+    peer_stale/1,
+    peer_recent_challenger/1,
+    peer_online/1,
+    peer_height/1
+]).
+
 -export([adjust_request_rate/0]).
 
 %% Status for all hotspots in the gateway_inventory table is attempted
@@ -61,10 +65,6 @@ peer_online(Address) ->
     Ledger = blockchain:ledger(),
     peer_online(Address, PeerBook, Ledger).
 
-peer_gps_fix_quality(Address) ->
-    PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
-    peer_gps_fix_quality(Address, PeerBook).
-
 peer_height(Address) ->
     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
     peer_height(Address, PeerBook).
@@ -76,7 +76,6 @@ request_rate() ->
 adjust_request_rate() ->
     gen_server:cast(?SERVER, adjust_request_rate).
 
-
 %%
 %% be_db_worker
 %%
@@ -87,92 +86,104 @@ adjust_request_rate() ->
 
 prepare_conn(Conn) ->
     {ok, S1} =
-        epgsql:parse(Conn, ?S_STATUS_UNKNOWN_LIST,
-                     ["select g.address from gateway_inventory g",
-                      "  left join gateway_status s on s.address = g.address ",
-                      "where coalesce(updated_at, to_timestamp(0)) ",
-                      "    < (now() - '", integer_to_list(?STATUS_REFRESH_MINS), " minute'::interval) ",
-                      "order by s.updated_at ",
-                      "limit $1"
-                     ], []),
+        epgsql:parse(
+            Conn,
+            ?S_STATUS_UNKNOWN_LIST,
+            [
+                "select g.address from gateway_inventory g",
+                "  left join gateway_status s on s.address = g.address ",
+                "where coalesce(updated_at, to_timestamp(0)) ",
+                "    < (now() - '",
+                integer_to_list(?STATUS_REFRESH_MINS),
+                " minute'::interval) ",
+                "order by s.updated_at ",
+                "limit $1"
+            ],
+            []
+        ),
     {ok, S2} =
-        epgsql:parse(Conn, ?S_STATUS_INSERT,
-                     ["insert into gateway_status as status ",
-                      "(address, ",
-                      " online, ",
-                      " poc_interval, ",
-                      " last_challenge, ",
-                      " gps, ",
-                      " block, ",
-                      " peer_timestamp "
-                      ") values ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000)) ",
-                      "on conflict (address) do update ",
-                      "set ",
-                      "    online = EXCLUDED.online,",
-                      "    last_challenge = EXCLUDED.last_challenge,",
-                      "    poc_interval = EXCLUDED.poc_interval,",
-                      "    gps = coalesce(EXCLUDED.gps, status.gps),",
-                      "    block = coalesce(EXCLUDED.block, status.block),"
-                      "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp);"
-                     ], []),
+        epgsql:parse(
+            Conn,
+            ?S_STATUS_INSERT,
+            [
+                "insert into gateway_status as status ",
+                "(address, ",
+                " online, ",
+                " poc_interval, ",
+                " last_challenge, ",
+                " block, ",
+                " peer_timestamp "
+                ") values ($1, $2, $3, $4, $5, to_timestamp($6::double precision / 1000)) ",
+                "on conflict (address) do update ",
+                "set ",
+                "    online = EXCLUDED.online,",
+                "    last_challenge = EXCLUDED.last_challenge,",
+                "    poc_interval = EXCLUDED.poc_interval,",
+                "    block = coalesce(EXCLUDED.block, status.block),"
+                "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp);"
+            ],
+            []
+        ),
     {ok, S3} =
-        epgsql:parse(Conn, ?S_PEER_ADDED,
-                     ["select block ",
-                      "from transaction_actors ",
-                      "where actor = $1 and actor_role = 'gateway' ",
-                      "order by block ",
-                      "limit 1"
-                      ], []),
+        epgsql:parse(
+            Conn,
+            ?S_PEER_ADDED,
+            [
+                "select block ",
+                "from transaction_actors ",
+                "where actor = $1 and actor_role = 'gateway' ",
+                "order by block ",
+                "limit 1"
+            ],
+            []
+        ),
     #{
-      ?S_STATUS_UNKNOWN_LIST => S1,
-      ?S_STATUS_INSERT => S2,
-      ?S_PEER_ADDED => S3
-     }.
+        ?S_STATUS_UNKNOWN_LIST => S1,
+        ?S_STATUS_INSERT => S2,
+        ?S_PEER_ADDED => S3
+    }.
 
 %%
 %% gen_server
 %%
 
 -record(state, {
-                request_rate :: pos_integer(),
-                requests :: ets:tid()
-               }).
+    request_rate :: pos_integer(),
+    requests :: ets:tid()
+}).
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
-
 
 init(_) ->
     self() ! check_status,
     RequestRate = calculate_request_rate(),
     lager:info("Gateway status starting with update rate: ~p per second", [RequestRate]),
-    {ok, #state{request_rate = RequestRate,
-                requests = ets:new(?SERVER, [ordered_set, public, {write_concurrency, true}])
-               }}.
+    {ok, #state{
+        request_rate = RequestRate,
+        requests = ets:new(?SERVER, [ordered_set, public, {write_concurrency, true}])
+    }}.
 
-handle_call(request_rate, _From, State=#state{request_rate=RequestRate}) ->
+handle_call(request_rate, _From, State = #state{request_rate = RequestRate}) ->
     {reply, RequestRate, State};
-
 handle_call(Request, _From, State) ->
     lager:notice("Unhandled call ~p", [Request]),
     {reply, ok, State}.
 
-
-handle_cast(adjust_request_rate, State=#state{}) ->
-    {noreply, State#state{request_rate=calculate_request_rate()}};
-
+handle_cast(adjust_request_rate, State = #state{}) ->
+    {noreply, State#state{request_rate = calculate_request_rate()}};
 handle_cast(Msg, State) ->
     lager:notice("Unhandled cast ~p", [Msg]),
     {noreply, State}.
 
-
-handle_info(check_status, State=#state{requests=Requests}) ->
+handle_info(check_status, State = #state{requests = Requests}) ->
     %% If there are outstnading requests in the ets table we
     %% recalcualte the request rate since we're not keeping up.
-    RequestRate = case ets:info(Requests, size) of
-                      0 -> State#state.request_rate;
-                      _ -> calculate_request_rate()
-                  end,
+    RequestRate =
+        case ets:info(Requests, size) of
+            0 -> State#state.request_rate;
+            _ -> calculate_request_rate()
+        end,
     case RequestRate == State#state.request_rate of
         true -> ok;
         false -> lager:info("Gateway status adjusting update rate to: ~p per second", [RequestRate])
@@ -180,22 +191,26 @@ handle_info(check_status, State=#state{requests=Requests}) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_STATUS_UNKNOWN_LIST, [RequestRate]),
 
     %% Ignore already outstanding requests
-    FilteredResults = lists:filter(fun({A}) ->
-                                           length(ets:lookup(Requests, A)) == 0
-                                   end, Results),
+    FilteredResults = lists:filter(
+        fun({A}) ->
+            length(ets:lookup(Requests, A)) == 0
+        end,
+        Results
+    ),
 
     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
     Ledger = blockchain:ledger(),
-    lists:foreach(fun({A}) ->
-                          request_status(A, PeerBook, Ledger, Requests)
-                  end, FilteredResults),
+    lists:foreach(
+        fun({A}) ->
+            request_status(A, PeerBook, Ledger, Requests)
+        end,
+        FilteredResults
+    ),
     erlang:send_after(timer:seconds(1), self(), check_status),
-    {noreply, State#state{request_rate=RequestRate}};
-
+    {noreply, State#state{request_rate = RequestRate}};
 handle_info(Info, State) ->
     lager:notice("Unhandled info ~p", [Info]),
     {noreply, State}.
-
 
 calculate_request_rate() ->
     %% NOTE:We make time be 10s per minute faster to catch up to the
@@ -204,42 +219,44 @@ calculate_request_rate() ->
     min(?MAX_REQUEST_RATE, round(GWCount / (?STATUS_REFRESH_MINS * 50))).
 
 request_status(B58Address, PeerBook, Ledger, Requests) ->
-    Request =
-        fun() ->
-                try
-                    true = ets:insert_new(Requests, {B58Address, self()}),
-                    Address = ?B58_TO_BIN(B58Address),
-                    Online = peer_online(Address),
-                    PoCInterval = blockchain_utils:challenge_interval(Ledger),
-                    LastChallenge = peer_last_challenge(Address, Ledger),
-                    GPS = peer_metadata(<<"gps_fix_quality">>, Address, PeerBook),
-                    Block = peer_metadata(<<"height">>, Address, PeerBook),
-                    PeerTime = peer_time(Address, PeerBook),
+    Request = fun() ->
+        try
+            true = ets:insert_new(Requests, {B58Address, self()}),
+            Address = ?B58_TO_BIN(B58Address),
+            Online = peer_online(Address),
+            PoCInterval = blockchain_utils:challenge_interval(Ledger),
+            LastChallenge = peer_last_challenge(Address, Ledger),
+            Block = peer_metadata(<<"height">>, Address, PeerBook),
+            PeerTime = peer_time(Address, PeerBook),
 
-                    ?PREPARED_QUERY(?S_STATUS_INSERT,
-                                    [B58Address, Online, PoCInterval, LastChallenge, GPS, Block, PeerTime])
-                catch
-                    What:Why ->
-                        lager:info("Failed to update gateway status for ~p: ~p", [B58Address, {What, Why}])
-                after
-                    ets:delete(Requests, B58Address)
-                end
-        end,
+            ?PREPARED_QUERY(
+                ?S_STATUS_INSERT,
+                [B58Address, Online, PoCInterval, LastChallenge, Block, PeerTime]
+            )
+        catch
+            What:Why ->
+                lager:info("Failed to update gateway status for ~p: ~p", [B58Address, {What, Why}])
+        after
+            ets:delete(Requests, B58Address)
+        end
+    end,
     spawn_link(Request).
-
 
 %%
 %% Peer Status lookups
 %%
 
--spec peer_online(libp2p_crypto:pubkey_bin(), libp2p_peerbook:peerbook(), blockchain:ledger()) -> binary().
+-spec peer_online(libp2p_crypto:pubkey_bin(), libp2p_peerbook:peerbook(), blockchain:ledger()) ->
+    binary().
 peer_online(Address, PeerBook, Ledger) ->
     Ledger = blockchain:ledger(),
     case peer_recently_added(Address, Ledger) of
-        true -> <<"online">>;
+        true ->
+            <<"online">>;
         false ->
             case peer_recent_challenger(Address, Ledger) of
-                true -> <<"online">>;
+                true ->
+                    <<"online">>;
                 false ->
                     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
                     case peer_stale(Address, PeerBook, true) of
@@ -248,7 +265,6 @@ peer_online(Address, PeerBook, Ledger) ->
                     end
             end
     end.
-
 
 -spec peer_recently_added(libp2p_crypto:pubkey_bin(), blockchain:ledger()) -> boolean().
 peer_recently_added(Address, Ledger) ->
@@ -261,20 +277,20 @@ peer_recently_added(Address, Ledger) ->
             false
     end.
 
--spec peer_last_challenge(libp2p_crypto:pubkey_bin(), blockchain_ledger_v1:ledger()) -> undefined | pos_integer().
+-spec peer_last_challenge(libp2p_crypto:pubkey_bin(), blockchain_ledger_v1:ledger()) ->
+    undefined | pos_integer().
 peer_last_challenge(Address, Ledger) ->
     case blockchain_ledger_v1:find_gateway_info(Address, Ledger) of
         {error, _} -> undefined;
         {ok, GWInfo} -> blockchain_ledger_gateway_v2:last_poc_challenge(GWInfo)
-
     end.
-
 
 peer_recent_challenger(Address, Ledger) ->
     {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
     PoCInterval = blockchain_utils:challenge_interval(Ledger),
     case peer_last_challenge(Address, Ledger) of
-        undefined -> false;
+        undefined ->
+            false;
         LastChallenge when LastChallenge >= (Height - (2 * PoCInterval)) ->
             true;
         _ ->
@@ -297,22 +313,12 @@ peer_metadata(Key, Address, PeerBook) ->
             undefined
     end.
 
-peer_gps_fix_quality(Address, PeerBook) ->
-    case peer_metadata(<<"gps_fix_quality">>, Address, PeerBook) of
-        undefined -> undefined;
-        <<"good_fix">> -> <<"good_fix">>;
-        <<"bad_assert">> -> <<"bad_assert">>;
-        <<"no_fix">> -> <<"no_fix">>;
-        <<"not_asserted">> -> <<"not_asserted">>;
-        Other ->
-            lager:warning("Unknown gps fix quality for gateway ~s: ~p", [?BIN_TO_B58(Address), Other]),
-            undefined
-    end.
-
 peer_height(Address, PeerBook) ->
     case peer_metadata(<<"height">>, Address, PeerBook) of
-        undefined -> undefined;
-        Height when is_integer(Height) -> Height;
+        undefined ->
+            undefined;
+        Height when is_integer(Height) ->
+            Height;
         Other ->
             lager:warning("Invalid block height for gateway ~s: ~p", [?BIN_TO_B58(Address), Other]),
             undefined
@@ -327,7 +333,8 @@ peer_stale(Address, PeerBook, Refresh) ->
                     %% ARP should be quick so give it a short while
                     timer:sleep(100),
                     peer_stale(Address, PeerBook, false);
-                Stale -> Stale
+                Stale ->
+                    Stale
             end;
         {error, _} when Refresh ->
             libp2p_peerbook:refresh(PeerBook, Address),
