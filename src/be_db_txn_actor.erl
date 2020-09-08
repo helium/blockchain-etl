@@ -155,7 +155,7 @@ to_actors(blockchain_txn_state_channel_open_v1, T) ->
     %% TODO: In v1 state channels we're assuminig the the opener is
     %% the payer of the DC in the state channel.
     Opener = blockchain_txn_state_channel_open_v1:owner(T),
-    [{"sc_opener", Opener}, {"payer", Opener}];
+    [{"sc_opener", Opener}, {"payer", Opener}, {"owner", Opener}];
 to_actors(blockchain_txn_state_channel_close_v1, T) ->
     %% NOTE: closer can be one of the clients of the state channel or the owner of the router
     %% if the state_channel expires
@@ -170,7 +170,11 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
                 %% state channel. This is not totally true since any
                 %% client in the state channel can cause it to close
                 %% to, but for v1 we expect this assumption to hold.
-                [{"sc_closer", Closer}, {"payee", Closer}],
+                [
+                 {"sc_closer", Closer},
+                 {"payee", Closer},
+                 {"owner", blockchain_txn_state_channel_close_v1:state_channel_owner(T)}
+                ],
                 blockchain_state_channel_v1:summaries(blockchain_txn_state_channel_close_v1:state_channel(T))
                );
 to_actors(blockchain_txn_price_oracle_v1, T) ->
