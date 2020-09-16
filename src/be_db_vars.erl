@@ -109,7 +109,7 @@ encode_key(K) when is_binary(K) ->
 
 q_insert_var({<<"price_oracle_public_keys">>=K, V}, Acc) ->
     {ok, _, CurrentKeys} = ?PREPARED_QUERY(?S_ORACLE_LIST, []),
-    NewKeys = [?BIN_TO_B58(NK) || NK <- blockchain_utils:vars_keys_to_list(V)],
+    NewKeys = [?BIN_TO_B58(NK) || NK <- blockchain_utils:bin_keys_to_list(V)],
     CurrentKeySet = sets:from_list(lists:map(fun({Key}) -> Key end, CurrentKeys)),
     NewKeySet = sets:from_list(NewKeys),
     Delete = sets:subtract(CurrentKeySet, NewKeySet),
