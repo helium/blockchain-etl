@@ -41,10 +41,7 @@ info_usage() ->
     [["info"],
      ["blockchain_follower info commands\n\n",
       "  info height - Get height of the blockchain for this blockchain_follower.\n",
-      "  info in_consensus - Show if this blockchain_follower is in the consensus_group.\n"
       "  name - Shows the name of this blockchain_follower.\n"
-      "  block_age - Get age of the latest block in the chain, in seconds.\n"
-      "  p2p_status - Shows key peer connectivity status of this blockchain_follower.\n"
      ]
     ].
 

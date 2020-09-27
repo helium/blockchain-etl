@@ -24,13 +24,14 @@
         }).
 
 
+-spec squery(Stmt::epgsql:sql_query()) -> epgsql_cmd_squery:response().
 squery(Sql) ->
     poolboy:transaction(?DB_POOL,
                         fun(Worker) ->
                                 gen_server:call(Worker, {squery, Sql}, infinity)
                         end).
 
--spec equery(Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
+-spec equery(Stmt::epgsql:sql_query(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
 equery(Stmt, Params) ->
     poolboy:transaction(?DB_POOL,
                         fun(Worker) ->
