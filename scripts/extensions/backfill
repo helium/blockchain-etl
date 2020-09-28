@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ -t 0 ] ; then
+    export CLIQUE_COLUMNS=`stty size 2>/dev/null | cut -d ' ' -f 2`
+fi
+export NODETOOL_TIMEOUT=5400000
+relx_nodetool rpc be_console command backfill $@
+exit $? 

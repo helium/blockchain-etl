@@ -4,7 +4,7 @@
 -include("be_db_follower.hrl").
 
 to_json(T, Ledger) ->
-    Json=#{ type:= Type} = blockchain_txn:to_json(T, []),
+    Json=#{ type:= Type} = blockchain_txn:to_json(T, [{ledger, Ledger}]),
     to_json(Type, Json, Ledger).
 
 to_json(<<"poc_request_v1">>, Json=#{ challenger := Challenger }, Ledger) ->

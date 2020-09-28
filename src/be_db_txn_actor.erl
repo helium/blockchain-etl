@@ -124,7 +124,7 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
                        {ChallengeeAcc, WitnessAcc}
                    end,
     {Challengees, Witnesses} = lists:foldl(ToActors, {[], []}, blockchain_txn_poc_receipts_v1:path(T)),
-    lists:usort(Challengees) ++ lists:usort(Witnesses);
+    lists:usort(Challengees) ++ lists:usort(Witnesses) ++ [{"challenger", blockchain_txn_poc_receipts_v1:challenger(T)}];
 to_actors(blockchain_txn_vars_v1, _T) ->
    [];
 to_actors(blockchain_txn_rewards_v1, T) ->
