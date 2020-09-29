@@ -109,7 +109,7 @@ handle_info({submit_pending, Stmt}, State=#state{}) ->
     %% fields to null
     QUpdatePendingTxn = fun(TxnCreatedAt, _TxnHash, Txn, Acc) ->
                                 Fields = try
-                                             be_txn:to_json(Txn, undefined)
+                                             be_txn:to_json(Txn)
                                          catch
                                              _:_ -> null
                                          end,
