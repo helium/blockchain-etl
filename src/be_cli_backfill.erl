@@ -19,7 +19,8 @@ register_all_usage() ->
         end,
         [
             backfill_usage(),
-            backfill_receipts_challenger_usage()
+            backfill_receipts_challenger_usage(),
+            backfill_reversed_receipts_path_usage()
         ]
     ).
 
@@ -30,7 +31,8 @@ register_all_cmds() ->
         end,
         [
             backfill_cmd(),
-            backfill_receipts_challenger_cmd()
+            backfill_receipts_challenger_cmd(),
+            backfill_reversed_receipts_path_cmd()
         ]
     ).
 
@@ -43,7 +45,8 @@ backfill_usage() ->
         ["backfill"],
         [
             "backfill commands\n\n",
-            "  backfill receipts_challeneger - Backfill the challenger for receipts transactions.\n"
+            "  backfill receipts_challeneger   - Backfill the challenger for receipts transactions.\n",
+            "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n"
         ]
     ].
 
@@ -114,3 +117,53 @@ backfill_receipts_challenger(_CmdBase, Keys, Flags) ->
         end
     ),
     [clique_status:text(io_lib:format("Inserted ~p", [Inserted]))].
+
+%%
+%% backfill reversed_receipts_paty
+%%
+
+backfill_reversed_receipts_path_cmd() ->
+    [
+        [
+            ["backfill", "reversed_receipts_path"],
+            [
+                {max, [{longname, "max"}, {datatype, integer}]},
+                {min, [{longname, "min"}, {datatype, integer}]}
+            ],
+            [],
+            fun backfill_reversed_receipts_path/3
+        ]
+    ].
+
+backfill_reversed_receipts_path_usage() ->
+    [
+        ["backfill", "reversed_receipts_path"],
+        [
+            "backfill reversed_receipts_path max=<max_block> min=<min_block>\n\n",
+            "  Fixes receipts transactions that may have their paths reversed.\n\n"
+            "  Run this migration for the range of blocks that ran version 1.1.44.\n\n"
+            "Requires:\n\n"
+            "  <max>\n"
+            "    The maximum block to start search for transaction.\n"
+            "  <min>\n"
+            "    The block to end searches at. \n\n"
+        ]
+    ].
+
+backfill_reversed_receipts_path(_CmdBase, [], []) ->
+    usage;
+backfill_reversed_receipts_path(_CmdBase, Keys, _) ->
+    MinBlock = proplists:get_value(min, Keys),
+    MaxBlock = proplists:get_value(max, Keys),
+
+    Updated = be_db_backfill:reversed_receipts_path(
+        MinBlock,
+        MaxBlock,
+        fun(Block, Updated) ->
+            io:format("Fixed ~p transactions in block ~p~n", [
+                Updated,
+                Block
+            ])
+        end
+    ),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
