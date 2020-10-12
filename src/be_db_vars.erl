@@ -75,7 +75,8 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, Hash, Block, Sync, Ledger, State=#state{check_vars=true}) ->
-    Vars = blockchain_ledger_v1:snapshot_vars(Ledger),
+    {ok, VarsNonce} = blockchain_ledger_v1:vars_nonce(Ledger),
+    Vars = [{<<"nonce">>, VarsNonce} | blockchain_ledger_v1:snapshot_vars(Ledger)],
     Queries = lists:foldl(fun q_insert_var/2, [], Vars),
     ok = ?BATCH_QUERY(Conn, Queries),
     load_block(Conn, Hash, Block, Sync, Ledger, State#state{check_vars=false});
@@ -91,7 +92,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State=#state{}) ->
     case Txns of
         [] -> [];
         _ ->
-            Vars = blockchain_ledger_v1:snapshot_vars(Ledger),
+            {ok, VarsNonce} = blockchain_ledger_v1:vars_nonce(Ledger),
+            Vars = [{<<"nonce">>, VarsNonce} | blockchain_ledger_v1:snapshot_vars(Ledger)],
             Queries = lists:foldl(fun q_insert_var/2, UnsetQueries, Vars),
             ok = ?BATCH_QUERY(Conn, Queries)
     end,
