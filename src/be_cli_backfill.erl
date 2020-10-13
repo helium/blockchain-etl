@@ -20,7 +20,8 @@ register_all_usage() ->
         [
             backfill_usage(),
             backfill_receipts_challenger_usage(),
-            backfill_reversed_receipts_path_usage()
+            backfill_reversed_receipts_path_usage(),
+            backfill_gateway_names_usage()
         ]
     ).
 
@@ -32,7 +33,8 @@ register_all_cmds() ->
         [
             backfill_cmd(),
             backfill_receipts_challenger_cmd(),
-            backfill_reversed_receipts_path_cmd()
+            backfill_reversed_receipts_path_cmd(),
+            backfill_gateway_names_cmd()
         ]
     ).
 
@@ -46,7 +48,8 @@ backfill_usage() ->
         [
             "backfill commands\n\n",
             "  backfill receipts_challeneger   - Backfill the challenger for receipts transactions.\n",
-            "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n"
+            "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n",
+            "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
         ]
     ].
 
@@ -166,4 +169,31 @@ backfill_reversed_receipts_path(_CmdBase, Keys, _) ->
             ])
         end
     ),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill gateway_names
+%%
+
+backfill_gateway_names_cmd() ->
+    [
+        [
+            ["backfill", "gateway_names"],
+            [],
+            [],
+            fun backfill_gateway_names/3
+        ]
+    ].
+
+backfill_gateway_names_usage() ->
+    [
+        ["backfill", "gateway_names"],
+        [
+            "backfill gateway_names \n\n",
+            "  Fixes NULL animal names in the gateway_inventory table.\n\n"
+        ]
+    ].
+
+backfill_gateway_names(_CmdBase, [], _) ->
+    Updated = be_db_backfill:gateway_names(),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].

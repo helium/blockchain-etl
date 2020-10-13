@@ -3,7 +3,7 @@
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
 
--export([receipts_challenger/4, reversed_receipts_path/3]).
+-export([receipts_challenger/4, reversed_receipts_path/3, gateway_names/0]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
     "insert into transaction_actors ",
@@ -113,3 +113,22 @@ reversed_receipts_path(MinBlock, MaxBlock, Fun) ->
         0,
         lists:seq(MinBlock, MaxBlock)
     ).
+
+%%
+%% Fill in gateway names if they're null
+%%
+
+gateway_names() ->
+    {ok, _, NoNames} = ?EQUERY(["select address from gateway_inventory where name is null"], []),
+
+    lists:foreach(
+        fun({Addr}) ->
+            {ok, Name} = erl_angry_purple_tiger:animal_name(Addr),
+            {ok, _} = ?EQUERY("update gateway_inventory set name = $2 where address = $1", [
+                Addr,
+                Name
+            ])
+        end,
+        NoNames
+    ),
+    length(NoNames).
