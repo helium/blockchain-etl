@@ -35,7 +35,7 @@ $$ LANGUAGE plpgsql;
 -- :down
 
 alter table gateways drop column nonce;
-alter table gateway_inventory crop column nonce;
+alter table gateway_inventory drop column nonce;
 
 CREATE OR REPLACE FUNCTION gateway_inventory_update()
 RETURNS TRIGGER AS $$
