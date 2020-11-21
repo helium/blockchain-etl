@@ -238,7 +238,10 @@ parse_geocode_results(#{<<"results">> := [], <<"status">> := Status}) ->
 parse_geocode_results(#{<<"results">> := [#{<<"address_components">> := Components} | _Tail]}) ->
     %% We currently only examine the first set of returned components
     {ok, #{
-        street => find_types([<<"route">>], Components),
+        street => find_types(
+            [<<"route">>, <<"sublocality_level_1">>],
+            Components
+        ),
         city => find_types(
             [
                 <<"locality">>,
