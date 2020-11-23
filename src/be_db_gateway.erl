@@ -28,20 +28,21 @@ prepare_conn(Conn) ->
             Conn,
             ?S_INSERT_GATEWAY,
             [
-                "insert into gateways (block, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name) select ",
+                "insert into gateways (block, time, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name) select ",
                 "$1 as block, ",
-                "$2 as address, ",
-                "$3 as owner, ",
-                "$4 as location, ",
-                "$5 as alpha, ",
-                "$6 as beta, ",
-                "$7 as delta, ",
-                "$8 as score, ",
-                "$9 as last_poc_challenge, ",
-                "$10 as last_poc_onion_key_hash, ",
-                "$11 as witnesses, ",
-                "$12 as nonce, ",
-                "$13 as name;"
+                "$2 as time, ",
+                "$3 as address, ",
+                "$4 as owner, ",
+                "$5 as location, ",
+                "$6 as alpha, ",
+                "$7 as beta, ",
+                "$8 as delta, ",
+                "$9 as score, ",
+                "$10 as last_poc_challenge, ",
+                "$11 as last_poc_onion_key_hash, ",
+                "$12 as witnesses, ",
+                "$13 as nonce, ",
+                "$14 as name;"
             ],
             []
         ),
@@ -60,6 +61,7 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     Active = blockchain_ledger_v1:active_gateways(Ledger),
     BlockHeight = blockchain_block_v1:height(Block),
+    BlockTime = blockchain_block_v1:time(Block),
     {Queries, Hashes} =
         maps:fold(
             fun(Key, GW, {Queries, Hashes}) ->
@@ -69,7 +71,15 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
                         {Queries, Hashes};
                     {true, NewHash} ->
                         %% Changed or new
-                        NewQueries = q_insert_gateway(BlockHeight, Key, GW, Ledger, Queries, State),
+                        NewQueries = q_insert_gateway(
+                            BlockHeight,
+                            BlockTime,
+                            Key,
+                            GW,
+                            Ledger,
+                            Queries,
+                            State
+                        ),
                         {NewQueries, Hashes#{Key => NewHash}}
                 end
             end,
@@ -79,12 +89,13 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     ok = ?BATCH_QUERY(Conn, Queries),
     {ok, State#state{gateways = Hashes}}.
 
-q_insert_gateway(BlockHeight, Address, GW, Ledger, Queries, #state{}) ->
+q_insert_gateway(BlockHeight, BlockTime, Address, GW, Ledger, Queries, #state{}) ->
     {_, _, Score} = blockchain_ledger_gateway_v2:score(Address, GW, BlockHeight, Ledger),
     B58Address = ?BIN_TO_B58(Address),
     {ok, Name} = erl_angry_purple_tiger:animal_name(B58Address),
     Params = [
         BlockHeight,
+        BlockTime,
         B58Address,
         ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(GW)),
         ?MAYBE_H3(blockchain_ledger_gateway_v2:location(GW)),
