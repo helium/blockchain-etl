@@ -226,4 +226,11 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
         )
     );
 to_actors(blockchain_txn_price_oracle_v1, T) ->
-    [{"oracle", blockchain_txn_price_oracle_v1:public_key(T)}].
+    [{"oracle", blockchain_txn_price_oracle_v1:public_key(T)}];
+to_actors(blockchain_txn_transfer_hotspot_v1, T) ->
+    [
+        {"gateway", blockchain_txn_transfer_hotspot_v1:gateway(T)},
+        {"payee", blockchain_txn_transfer_hotspot_v1:seller(T)},
+        {"payer", blockchain_txn_transfer_hotspot_v1:buyer(T)},
+        {"owner", blockchain_txn_transfer_hotspot_v1:buyer(T)}
+    ].
