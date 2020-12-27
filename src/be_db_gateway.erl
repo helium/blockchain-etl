@@ -28,21 +28,17 @@ prepare_conn(Conn) ->
             Conn,
             ?S_INSERT_GATEWAY,
             [
-                "insert into gateways (block, time, address, owner, location, alpha, beta, delta, score, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name) select ",
+                "insert into gateways (block, time, address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name) select ",
                 "$1 as block, ",
                 "$2 as time, ",
                 "$3 as address, ",
                 "$4 as owner, ",
                 "$5 as location, ",
-                "$6 as alpha, ",
-                "$7 as beta, ",
-                "$8 as delta, ",
-                "$9 as score, ",
-                "$10 as last_poc_challenge, ",
-                "$11 as last_poc_onion_key_hash, ",
-                "$12 as witnesses, ",
-                "$13 as nonce, ",
-                "$14 as name;"
+                "$6 as last_poc_challenge, ",
+                "$7 as last_poc_onion_key_hash, ",
+                "$8 as witnesses, ",
+                "$9 as nonce, ",
+                "$10 as name;"
             ],
             []
         ),
@@ -89,8 +85,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     ok = ?BATCH_QUERY(Conn, Queries),
     {ok, State#state{gateways = Hashes}}.
 
-q_insert_gateway(BlockHeight, BlockTime, Address, GW, Ledger, Queries, #state{}) ->
-    {_, _, Score} = blockchain_ledger_gateway_v2:score(Address, GW, BlockHeight, Ledger),
+q_insert_gateway(BlockHeight, BlockTime, Address, GW, _Ledger, Queries, #state{}) ->
     B58Address = ?BIN_TO_B58(Address),
     {ok, Name} = erl_angry_purple_tiger:animal_name(B58Address),
     Params = [
@@ -99,10 +94,6 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, Ledger, Queries, #state{})
         B58Address,
         ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(GW)),
         ?MAYBE_H3(blockchain_ledger_gateway_v2:location(GW)),
-        blockchain_ledger_gateway_v2:alpha(GW),
-        blockchain_ledger_gateway_v2:beta(GW),
-        blockchain_ledger_gateway_v2:delta(GW),
-        Score,
         ?MAYBE_UNDEFINED(blockchain_ledger_gateway_v2:last_poc_challenge(GW)),
         ?MAYBE_B64(blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW)),
         witnesses_to_json(blockchain_ledger_gateway_v2:witnesses(GW)),
@@ -139,15 +130,14 @@ witness_to_json(Witness) ->
 init_gateway_cache(State = #state{}) ->
     lager:info("Constructing gateway cache"),
     {ok, _, GWList} = ?EQUERY(
-        "select address, owner, location, alpha, beta, delta, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce from gateway_inventory",
+        "select address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce from gateway_inventory",
         []
     ),
     Result = maps:from_list(
         lists:map(
             fun(
                 Entry =
-                    {Address, _Owner, _Location, _Alpha, _Beta, _Delta, _LastPocChallenge,
-                        _LastPocOnionKeyHash, _Witnesses, _Nonce}
+                    {Address, _Owner, _Location, _LastPocChallenge, _LastPocOnionKeyHash, _Witnesses, _Nonce}
             ) ->
                 GWHash = mk_gateway_hash({db, Entry}),
                 {?B58_TO_BIN(Address), GWHash}
@@ -185,9 +175,6 @@ gateway_changed(Key, GW, Gateways) ->
 -record(gateway, {
     owner :: libp2p_crypto:pubkey_bin(),
     location :: undefined | h3:h3_index(),
-    alpha :: float(),
-    beta :: float(),
-    delta :: integer(),
     last_poc_challenge :: undefined | non_neg_integer(),
     last_poc_onion_hash :: undefined | binary(),
     witnesses :: [#gateway_witness{}],
@@ -249,15 +236,11 @@ mk_gateway_witnesses({chain, Witnesses}) ->
 
 mk_gateway(
     {db,
-        {_Address, Owner, Location, Alpha, Beta, Delta, LastPocChallenge, LastPocOnionKeyHash,
-            Witnesses, Nonce}}
+        {_Address, Owner, Location, LastPocChallenge, LastPocOnionKeyHash, Witnesses, Nonce}}
 ) ->
     #gateway{
         owner = ?B58_TO_BIN(Owner),
         location = ?MAYBE_FN(fun(Bin) -> h3:from_string(binary_to_list(Bin)) end, Location),
-        alpha = Alpha,
-        beta = Beta,
-        delta = Delta,
         last_poc_challenge = ?MAYBE_UNDEFINED(LastPocChallenge),
         last_poc_onion_hash = ?MAYBE_UNDEFINED(LastPocOnionKeyHash),
 
@@ -268,9 +251,6 @@ mk_gateway({chain, GW}) ->
     #gateway{
         owner = blockchain_ledger_gateway_v2:owner_address(GW),
         location = blockchain_ledger_gateway_v2:location(GW),
-        alpha = blockchain_ledger_gateway_v2:alpha(GW),
-        beta = blockchain_ledger_gateway_v2:beta(GW),
-        delta = blockchain_ledger_gateway_v2:delta(GW),
         last_poc_challenge = blockchain_ledger_gateway_v2:last_poc_challenge(GW),
         last_poc_onion_hash = blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW),
 
