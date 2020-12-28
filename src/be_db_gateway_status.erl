@@ -112,15 +112,17 @@ prepare_conn(Conn) ->
                 " poc_interval, ",
                 " last_challenge, ",
                 " block, ",
-                " peer_timestamp "
-                ") values ($1, $2, $3, $4, $5, to_timestamp($6::double precision / 1000)) ",
+                " peer_timestamp, ",
+                " listen_addrs ",
+                ") values ($1, $2, $3, $4, $5, to_timestamp($6::double precision / 1000), $7) ",
                 "on conflict (address) do update ",
                 "set ",
                 "    online = EXCLUDED.online,",
                 "    last_challenge = EXCLUDED.last_challenge,",
                 "    poc_interval = EXCLUDED.poc_interval,",
                 "    block = coalesce(EXCLUDED.block, status.block),"
-                "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp);"
+                "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp),",
+                "    listen_addrs = EXCLUDED.listen_addrs;"
             ],
             []
         ),
@@ -228,10 +230,11 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
             LastChallenge = peer_last_challenge(Address, Ledger),
             Block = peer_metadata(<<"height">>, Address, PeerBook),
             PeerTime = peer_time(Address, PeerBook),
+            ListenAddrs = peer_listen_addrs(Address, PeerBook),
 
             ?PREPARED_QUERY(
                 ?S_STATUS_INSERT,
-                [B58Address, Online, PoCInterval, LastChallenge, Block, PeerTime]
+                [B58Address, Online, PoCInterval, LastChallenge, Block, PeerTime, ListenAddrs]
             )
         catch
             What:Why ->
@@ -258,7 +261,6 @@ peer_online(Address, PeerBook, Ledger) ->
                 true ->
                     <<"online">>;
                 false ->
-                    PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
                     case peer_stale(Address, PeerBook, true) of
                         true -> <<"offline">>;
                         false -> <<"online">>
@@ -343,4 +345,13 @@ peer_stale(Address, PeerBook, Refresh) ->
             peer_stale(Address, PeerBook, false);
         _ ->
             true
+    end.
+
+-spec peer_listen_addrs(libp2p_crypto:pubkey_bin(), libp2p_peerbook:peerbook()) -> [binary()] | undefined.
+peer_listen_addrs(Address, PeerBook) ->
+    case libp2p_peerbook:get(PeerBook, Address) of
+        {ok, Peer} ->
+            [list_to_binary(A) || A <- libp2p_peer:listen_addrs(Peer)];
+        {error, _} ->
+            undefined
     end.
