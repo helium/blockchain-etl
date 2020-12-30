@@ -27,7 +27,8 @@
          be_db_oracle_price,
          be_db_vars,
          be_db_stats,
-         be_db_reward
+         be_db_reward,
+         be_db_packet
          ]).
 
 -record(state,
