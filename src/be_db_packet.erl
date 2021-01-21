@@ -24,7 +24,8 @@ prepare_conn(Conn) ->
         ?S_INSERT_PACKET,
         [
             "insert into packets (block, transaction_hash, time, gateway, num_packets, num_dcs) ",
-            "values ($1, $2, $3, $4, $5, $6) "
+            "values ($1, $2, $3, $4, $5, $6) ",
+            "on conflict do nothing "
         ],
         []
     ),
