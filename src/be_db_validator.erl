@@ -16,13 +16,6 @@
         pos_integer()
 }).
 
--record(validator, {
-    address :: libp2p_crypto:pubkey_bin(),
-    owner :: libp2p_crypto:pubkey_bin(),
-    stakke = 0,
-    nonce = 0
-}).
-
 -define(S_VALIDATOR_INSERT, "validator_insert").
 
 %%
@@ -35,14 +28,15 @@ prepare_conn(Conn) ->
             Conn,
             ?S_VALIDATOR_INSERT,
             [
-                "insert into validator (block, address, owner, stake, nonce, last_heartbeat, version_heartbeat) select ",
+                "insert into validator (block, address, owner, stake, status, nonce, last_heartbeat, version_heartbeat) select ",
                 "$1 as block, ",
                 "$2 as address, ",
                 "$3 as owner, ",
                 "$4 as stake, ",
-                "$5 as nonce, "
-                "$6 as last_heartbeat, "
-                "$7 as version_heartbeat "
+                "$5 as status, ",
+                "$6 as nonce, "
+                "$7 as last_heartbeat, "
+                "$8 as version_heartbeat "
             ],
             []
         ),
@@ -93,6 +87,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
                         ?BIN_TO_B58(blockchain_ledger_validator_v1:owner_address(Entry)),
                         blockchain_ledger_validator_v1:stake(Entry),
                         blockchain_ledger_validator_v1:nonce(Entry),
+                        blockchain_ledger_validator_v1:status(Entry),
                         blockchain_ledger_validator_v1:last_heartbeat(Entry),
                         blockchain_ledger_validator_v1:version(Entry)
                     ],

@@ -273,12 +273,12 @@ to_actors(blockchain_txn_transfer_validator_stake_v1, T) ->
             _ -> [{"owner", NewOwner}, {"owner", OldOwner}]
         end,
     [
-        {"validator", blockchain_txn_transfer_validator_stake_v1:old_validator(T)},
-        {"validator", blockchain_txn_transfer_validator_stake_v1:new_validator(T)},
+        {"validator", blockchain_txn_transfer_validator_stake_v1:old_address(T)},
+        {"validator", blockchain_txn_transfer_validator_stake_v1:new_address(T)},
         {"payer", blockchain_txn_transfer_validator_stake_v1:new_owner(T)},
         {"payee", blockchain_txn_transfer_validator_stake_v1:old_owner(T)}
     ] ++ Owners;
 to_actors(blockchain_txn_validator_heartbeat_v1, T) ->
     [
-        {"validator", blockchain_txn_validator_heartbeat_v1:addr(T)}
+        {"validator", blockchain_txn_validator_heartbeat_v1:address(T)}
     ].
