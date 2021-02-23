@@ -11,6 +11,7 @@
 ) -> {ok, NewState :: any()}.
 
 -behavior(blockchain_follower).
+
 -include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
@@ -24,8 +25,16 @@
     load_block/5,
     terminate/2
 ]).
+
 %% utilities
--export([maybe_undefined/1, maybe_fn/2, maybe_b64/1, maybe_b58/1, maybe_h3/1]).
+-export([
+    fold_actors/4,
+    maybe_undefined/1,
+    maybe_fn/2,
+    maybe_b64/1,
+    maybe_b58/1,
+    maybe_h3/1
+]).
 
 -define(HANDLER_MODULES, [
     be_db_block,
@@ -37,6 +46,7 @@
     be_db_stats,
     be_db_reward,
     be_db_packet,
+    be_db_validator,
     be_db_oui
 ]).
 
@@ -45,6 +55,7 @@
 }).
 
 requires_ledger() -> true.
+
 requires_sync() -> true.
 
 init(_) ->
@@ -94,9 +105,19 @@ terminate(_Reason, _State) ->
 %% Utilities
 %%
 
-%%
-%% Utilities
-%%
+fold_actors(Roles, Fun, InitAcc, Block) ->
+    Txns = blockchain_block_v1:transactions(Block),
+    %% Fetch actor keys that relate to accounts from each transaction's actors
+    FilteredActors =
+        fun(Actors) ->
+            lists:filter(fun({Role, _Key}) -> lists:member(Role, Roles) end, Actors)
+        end,
+    ActorList = lists:usort(
+        lists:flatten(
+            lists:map(fun(Txn) -> FilteredActors(be_db_txn_actor:to_actors(Txn)) end, Txns)
+        )
+    ),
+    lists:foldl(fun({Role, Key}, Acc) -> Fun({Role, Key}, Acc) end, InitAcc, ActorList).
 
 -spec maybe_undefined(any() | undefined | null) -> any() | undefined.
 maybe_undefined(undefined) ->

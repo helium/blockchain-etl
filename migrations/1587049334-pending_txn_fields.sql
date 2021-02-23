@@ -15,8 +15,5 @@ create table pending_transaction_actors (
 
 -- :down
 
--- This does NOT do a proper down migration for the pending
--- transactions address column since we don't know the actual primary
--- "source" address for transactions at this point.
 alter table pending_transactions drop column fields;
 drop table pending_transaction_actors;

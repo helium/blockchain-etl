@@ -74,18 +74,14 @@ alter table accounts drop column timestamp;
 
 -- :down
 
--- Create account ledger with first_block
 create materialized view account_ledger as
     select aa.first_block, a.*  from
         (select max(block) as last_block, min(block) as first_block, address from accounts group by address) aa
         inner join accounts a on (a.block, a.address) = (aa.last_block, aa.address);
 
--- recreate unique index
 create unique index account_ledger_address_idx on account_ledger(address);
--- Add an index that allows ordering the ledger for paging purposes
 create index account_ledger_first_block_idx on account_ledger(first_block);
 
--- Destroy the new stuff
 drop trigger account_insert on accounts;
 drop function account_inventory_update;
 drop table account_inventory;

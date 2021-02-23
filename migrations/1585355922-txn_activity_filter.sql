@@ -1,9 +1,6 @@
 -- migrations/1585355922-txn_activity_filter.sql
 -- :up
 
--- This adds support for filtering transaction fields down to the
--- given account that matters. This depends on the type of transaction
--- so we use a case statement and handle the two common cases.
 create function txn_filter_account_activity(acc text, type transaction_type, fields jsonb) returns jsonb as $$
 begin
     case

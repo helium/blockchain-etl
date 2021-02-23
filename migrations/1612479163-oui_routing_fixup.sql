@@ -10,15 +10,13 @@ update transactions
     set fields = jsonb_set(fields, '{oui}', 2::text::jsonb)
     where hash = 'ojYvEpRioAgxYOU2U5ImmFGd0dlY0CIYRpRjT_mIGT8';
 
-insert into transaction_actors 
-    select 
+insert into transaction_actors
+    select
         t.owner as actor,
         'payer' as actor_role,
         t.hash as transaction_hash,
         t.block as block
-    from (select block, hash, fields->>'owner' as owner 
+    from (select block, hash, fields->>'owner' as owner
         from transactions where type = 'routing_v1') t
 on CONFLICT do nothing
 
--- :down
--- No down migration

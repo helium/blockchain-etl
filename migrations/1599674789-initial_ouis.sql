@@ -11,5 +11,3 @@ update transactions
     set fields = jsonb_set(fields, '{oui}', 3::text::jsonb)
     where hash = 'ojYvEpRioAgxYOU2U5ImmFGd0dlY0CIYRpRjT_mIGT8';
 
--- :down
--- No down migration

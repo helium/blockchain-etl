@@ -19,15 +19,11 @@ CREATE TABLE accounts (
 );
 
 
--- A collapsed view of accounts that includes all known accounts at the
--- highest block
 create materialized view account_ledger as
        select * from accounts
        where (block, address) in
              (select max(block) as block, address from accounts group by address);
 
--- This allows a quick lookup of an account by it's address. Any index on
--- the materialized view also allows a concurrent view refresh
 create unique index account_ledger_address_idx on account_ledger(address);
 
 -- :down

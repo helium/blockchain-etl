@@ -21,7 +21,6 @@ language plpgsql;
 
 -- :down
 
--- Put back the broken payer filter
 create or replace function txn_filter_actor_activity(actor text, type transaction_type, fields jsonb) returns jsonb as $$
 begin
     case
