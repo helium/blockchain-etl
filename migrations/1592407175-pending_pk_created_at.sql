@@ -13,4 +13,3 @@ where pending_transaction_actors.transaction_hash=subquery.hash;
 alter table pending_transaction_actors drop constraint pending_transaction_actors_pkey;
 alter table pending_transaction_actors add primary key(actor, actor_role, created_at);
 
--- :down

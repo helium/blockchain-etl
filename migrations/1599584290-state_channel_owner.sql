@@ -12,4 +12,3 @@ insert into transaction_actors
 on conflict do nothing;
 
 
--- :down

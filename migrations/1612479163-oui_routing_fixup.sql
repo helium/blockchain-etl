@@ -20,5 +20,3 @@ insert into transaction_actors
         from transactions where type = 'routing_v1') t
 on CONFLICT do nothing
 
--- No down migration
--- :down

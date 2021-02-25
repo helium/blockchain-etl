@@ -3,6 +3,3 @@
 
 ALTER TYPE transaction_actor_role ADD VALUE 'oracle';
 
-
--- really nothing we can do here
--- :down

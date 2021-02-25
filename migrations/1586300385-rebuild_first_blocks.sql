@@ -11,6 +11,4 @@ update accounts set first_block=subquery.block
             from accounts group by address) as subquery
 where accounts.address=subquery.address;
 
--- No down migration possible or required
--- :down
 

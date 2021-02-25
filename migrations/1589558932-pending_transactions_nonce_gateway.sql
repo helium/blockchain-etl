@@ -3,5 +3,3 @@
 
 alter type pending_transaction_nonce_type add value 'gateway'
 
--- No real good way to down migrate, but this should not hurt
--- :down

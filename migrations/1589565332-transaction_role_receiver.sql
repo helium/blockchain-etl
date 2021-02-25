@@ -3,5 +3,3 @@
 
 alter type transaction_actor_role add value 'packet_receiver';
 
--- Nothing to do here.
--- :down

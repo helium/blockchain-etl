@@ -35,7 +35,6 @@ end;
 $$ language plpgsql;
 
 update locations set search = location_words(locations::locations);
--- create the magic index
 create index location_search_idx on locations using GIN(search gin_trgm_ops);
 
 create trigger location_update_search

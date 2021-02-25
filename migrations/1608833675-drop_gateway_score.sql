@@ -38,5 +38,3 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- there is really no way to get all that score data back
--- :down

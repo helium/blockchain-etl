@@ -2,5 +2,3 @@
 -- :up
 ALTER TYPE transaction_actor_role ADD VALUE 'sc_closer';
 
--- Nothing to do here.
--- :down
