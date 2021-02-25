@@ -67,8 +67,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     Addresses = lists:usort(
         lists:foldl(
             fun (Txn, Acc) ->
-                Addresses = ValidatorsFromActors(be_db_txn_actor:to_actors(Txn)),
-                Addresses ++ Acc
+                Validators = ValidatorsFromActors(be_db_txn_actor:to_actors(Txn)),
+                Validators ++ Acc
             end,
             [],
             Txns
@@ -86,12 +86,12 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
                         ?BIN_TO_B58(Address),
                         ?BIN_TO_B58(blockchain_ledger_validator_v1:owner_address(Entry)),
                         blockchain_ledger_validator_v1:stake(Entry),
-                        blockchain_ledger_validator_v1:nonce(Entry),
                         blockchain_ledger_validator_v1:status(Entry),
+                        blockchain_ledger_validator_v1:nonce(Entry),
                         blockchain_ledger_validator_v1:last_heartbeat(Entry),
                         blockchain_ledger_validator_v1:version(Entry)
                     ],
-                    [{?S_VALIDATOR_INSERT, Params} || Acc]
+                    [{?S_VALIDATOR_INSERT, Params} | Acc]
             end
         end,
         [],

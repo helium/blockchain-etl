@@ -236,6 +236,8 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
             blockchain_txn_state_channel_close_v1:state_channel(T)
         )
     );
+to_actors(blockchain_txn_gen_price_oracle_v1, _T) ->
+    [];
 to_actors(blockchain_txn_price_oracle_v1, T) ->
     [{"oracle", blockchain_txn_price_oracle_v1:public_key(T)}];
 to_actors(blockchain_txn_transfer_hotspot_v1, T) ->
@@ -253,15 +255,15 @@ to_actors(blockchain_txn_gen_validator_v1, T) ->
     ];
 to_actors(blockchain_txn_stake_validator_v1, T) ->
     [
-        {"validator", blockchain_txn_gen_validator_v1:address(T)},
-        {"payer", blockchain_txn_gen_validator_v1:owner(T)},
-        {"owner", blockchain_txn_gen_validator_v1:owner(T)}
+        {"validator", blockchain_txn_stake_validator_v1:validator(T)},
+        {"payer", blockchain_txn_stake_validator_v1:owner(T)},
+        {"owner", blockchain_txn_stake_validator_v1:owner(T)}
     ];
 to_actors(blockchain_txn_unstake_validator_v1, T) ->
     [
-        {"validator", blockchain_txn_gen_validator_v1:address(T)},
-        {"payee", blockchain_txn_gen_validator_v1:owner(T)},
-        {"owner", blockchain_txn_gen_validator_v1:owner(T)}
+        {"validator", blockchain_txn_unstake_validator_v1:address(T)},
+        {"payee", blockchain_txn_unstake_validator_v1:owner(T)},
+        {"owner", blockchain_txn_unstake_validator_v1:owner(T)}
     ];
 to_actors(blockchain_txn_transfer_validator_stake_v1, T) ->
     OldOwner = blockchain_txn_transfer_validator_stake_v1:old_owner(T),
