@@ -4,5 +4,5 @@
 ALTER TYPE transaction_actor_role ADD VALUE 'validator';
 ALTER TYPE transaction_type ADD VALUE 'gen_validator_v1';
 
--- :down
 -- Down migration
+-- :down

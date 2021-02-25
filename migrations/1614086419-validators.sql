@@ -70,7 +70,6 @@ create trigger validator_insert
        execute procedure validator_inventory_update();
 
 -- :down
--- Down migration
 
 drop trigger validator_insert on validators;
 drop function validator_inventory_update;

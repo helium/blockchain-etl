@@ -3,6 +3,5 @@
 
 ALTER TYPE pending_transaction_status ADD VALUE 'cleared';
 
--- :down
--- Down migration
 -- There's nothing really to do here sadly
+-- :down
