@@ -8,13 +8,12 @@
 
 %% be_db_worker
 -export([prepare_conn/1]).
-%% be_block_handler
+%% be_db_follower
 -export([init/1, load_block/6]).
+%% hooks
+-export([incremental_commit_hook/1, end_commit_hook/1]).
 
--record(state, {
-    base_secs = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}) ::
-        pos_integer()
-}).
+-record(state, {}).
 
 -define(S_VALIDATOR_INSERT, "validator_insert").
 
@@ -50,52 +49,51 @@ prepare_conn(Conn) ->
 %%
 
 init(_) ->
+    ets:new(?MODULE, [public, named_table]),
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
-    Txns = blockchain_block_v1:transactions(Block),
-    %% Fetch actor keys that relate to validators from each transaction's actors
-    ValidatorsFromActors = fun (Actors) ->
-        lists:filtermap(
-            fun
-                ({"validator", Key}) -> {true, Key};
-                (_) -> false
-            end,
-            Actors
-        )
-    end,
-    Addresses = lists:usort(
-        lists:foldl(
-            fun (Txn, Acc) ->
-                Validators = ValidatorsFromActors(be_db_txn_actor:to_actors(Txn)),
-                Validators ++ Acc
-            end,
-            [],
-            Txns
-        )
-    ),
     BlockHeight = blockchain_block_v1:height(Block),
-    Queries = lists:foldl(
-        fun (Address, Acc) ->
-            case blockchain_ledger_v1:get_validator(Address, Ledger) of
-                {error, _} ->
-                    Acc;
-                {ok, Entry} ->
-                    Params = [
-                        BlockHeight,
-                        ?BIN_TO_B58(Address),
-                        ?BIN_TO_B58(blockchain_ledger_validator_v1:owner_address(Entry)),
-                        blockchain_ledger_validator_v1:stake(Entry),
-                        blockchain_ledger_validator_v1:status(Entry),
-                        blockchain_ledger_validator_v1:nonce(Entry),
-                        blockchain_ledger_validator_v1:last_heartbeat(Entry),
-                        blockchain_ledger_validator_v1:version(Entry)
-                    ],
-                    [{?S_VALIDATOR_INSERT, Params} | Acc]
-            end
+    Queries = ets:foldl(
+        fun
+            ({Key}, Acc) ->
+                case blockchain_ledger_v1:get_validator(Key, Ledger) of
+                    {error, _} ->
+                        Acc;
+                    {ok, Entry} ->
+                        Params = [
+                            BlockHeight,
+                            ?BIN_TO_B58(Key),
+                            ?BIN_TO_B58(
+                                blockchain_ledger_validator_v1:owner_address(Entry)
+                            ),
+                            blockchain_ledger_validator_v1:stake(Entry),
+                            blockchain_ledger_validator_v1:status(Entry),
+                            blockchain_ledger_validator_v1:nonce(Entry),
+                            blockchain_ledger_validator_v1:last_heartbeat(Entry),
+                            blockchain_ledger_validator_v1:version(Entry)
+                        ],
+                        [{?S_VALIDATOR_INSERT, Params} | Acc]
+                end;
+            (_, Acc) ->
+                Acc
         end,
         [],
-        Addresses
+        ?MODULE
     ),
     ok = ?BATCH_QUERY(Conn, Queries),
+    ets:delete_all_objects(?MODULE),
     {ok, State}.
+
+incremental_commit_hook(Changes) ->
+    lists:foreach(
+        fun
+            ({_CF, put, Key, _Value}) ->
+                ets:insert(?MODULE, {Key});
+            (_) ->
+                ok
+        end,
+        Changes
+    ).
+
+end_commit_hook(_) -> ok.

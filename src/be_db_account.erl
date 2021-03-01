@@ -10,7 +10,7 @@
 -export([prepare_conn/1]).
 %% be_db_follower
 -export([init/1, load_block/6]).
-%% api
+%% hooks
 -export([incremental_commit_hook/1, end_commit_hook/1]).
 
 -record(account, {
@@ -23,10 +23,7 @@
     nonce = 0
 }).
 
--record(state, {
-    commit_hooks = [] :: [reference()],
-    updates = #{} :: #{libp2p_crypto:pubkey_bin() => #account{}}
-}).
+-record(state, {}).
 
 -define(S_ACCOUNT_INSERT, "account_insert").
 
@@ -60,19 +57,6 @@ prepare_conn(Conn) ->
 %%
 %% be_block_handler
 %%
-
-incremental_commit_hook(Changes) ->
-    lists:foreach(
-        fun
-            ({_CF, put, Key, _Value}) ->
-                ets:insert(?MODULE, {Key});
-            (_) ->
-                ok
-        end,
-        Changes
-    ).
-
-end_commit_hook(_) -> ok.
 
 init(_) ->
     ets:new(?MODULE, [public, named_table]),
@@ -157,3 +141,16 @@ update_balance(Account, Ledger) ->
         _ ->
             Account
     end.
+
+incremental_commit_hook(Changes) ->
+    lists:foreach(
+        fun
+            ({_CF, put, Key, _Value}) ->
+                ets:insert(?MODULE, {Key});
+            (_) ->
+                ok
+        end,
+        Changes
+    ).
+
+end_commit_hook(_) -> ok.
