@@ -203,7 +203,7 @@ calculate_request_rate() ->
     %% NOTE:We make time be 10s per minute faster to catch up to the
     %% per second updates.
     {ok, _, [{GWCount}]} = ?EQUERY("select count(*) from gateway_inventory", []),
-    min(?MAX_REQUEST_RATE, ceil(GWCount / (?STATUS_REFRESH_MINS * 50))).
+    min(?MAX_REQUEST_RATE, max(1, round(GWCount / (?STATUS_REFRESH_MINS * 50)))).
 
 request_status(B58Address, PeerBook, Ledger, Requests) ->
     Request = fun () ->
