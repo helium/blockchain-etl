@@ -108,5 +108,6 @@ init([]) ->
             ]),
             ?WORKER(be_db_pending_txn, []),
             ?WORKER(be_db_geocoder, []),
-            ?WORKER(be_db_gateway_status, [])
+            ?WORKER(be_db_gateway_status, []),
+            ?WORKER(be_db_validator_status, [])
         ]}}.
