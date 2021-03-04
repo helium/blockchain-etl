@@ -3,6 +3,8 @@
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
 
+-include_lib("blockchain/include/blockchain_vars.hrl").
+
 -behaviour(gen_server).
 
 -beheviour(bh_db_worker).
@@ -225,8 +227,14 @@ request_status(B58Address, PeerBook, _Ledger, Requests) ->
     blockchain:ledger()
 ) ->
     binary().
-peer_online(Address, PeerBook, _Ledger) ->
-    case be_peer_status:peer_stale(Address, PeerBook, true) of
-        true -> <<"offline">>;
-        false -> <<"online">>
+peer_online(Address, _PeerBook, Ledger) ->
+    {ok, HBInterval} = blockchain:config(?validator_liveness_interval, Ledger),
+    {ok, HBGrace} = blockchain:config(?validator_liveness_grace_period, Ledger),
+    {ok, Validator} = blockchain_ledger_v1:get_validator(Address, Ledger),
+    case
+        blockchain_ledger_validator_v1:last_heartbeat(Validator) + HBInterval + HBGrace >=
+            blockchain_ledger_v1:current_height(Ledger)
+    of
+        true -> <<"online">>;
+        false -> <<"offline">>
     end.
