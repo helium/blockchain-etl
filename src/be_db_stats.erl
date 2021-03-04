@@ -63,7 +63,7 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
     {Stats, Queries} =
         lists:foldl(
-            fun(Name, {Stats, Acc}) ->
+            fun (Name, {Stats, Acc}) ->
                 Current = maps:get(Name, Stats, 0),
                 case update(Name, Current, Block) of
                     Current ->
@@ -80,7 +80,8 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
                 <<"countries">>,
                 <<"cities">>,
                 <<"consensus_groups">>,
-                <<"challenges">>
+                <<"challenges">>,
+                <<"validators">>
             ]
         ),
 
@@ -96,7 +97,7 @@ update(<<"transactions">>, Current, Block) ->
 update(<<"hotspots">>, Current, Block) ->
     case
         lists:any(
-            fun(Txn) ->
+            fun (Txn) ->
                 blockchain_txn:type(Txn) == blockchain_txn_add_gateway_v1
             end,
             blockchain_block:transactions(Block)
@@ -112,7 +113,7 @@ update(<<"hotspots">>, Current, Block) ->
 update(<<"cities">>, Current, Block) ->
     case
         lists:any(
-            fun(Txn) ->
+            fun (Txn) ->
                 blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1
             end,
             blockchain_block:transactions(Block)
@@ -133,7 +134,7 @@ update(<<"cities">>, Current, Block) ->
 update(<<"countries">>, Current, Block) ->
     case
         lists:any(
-            fun(Txn) ->
+            fun (Txn) ->
                 blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1
             end,
             blockchain_block:transactions(Block)
@@ -153,7 +154,7 @@ update(<<"countries">>, Current, Block) ->
     end;
 update(<<"consensus_groups">>, Current, Block) ->
     Txns = lists:filter(
-        fun(Txn) ->
+        fun (Txn) ->
             blockchain_txn:type(Txn) == blockchain_txn_consensus_group_v1
         end,
         blockchain_block:transactions(Block)
@@ -161,12 +162,20 @@ update(<<"consensus_groups">>, Current, Block) ->
     Current + length(Txns);
 update(<<"challenges">>, Current, Block) ->
     Txns = lists:filter(
-        fun(Txn) ->
+        fun (Txn) ->
             blockchain_txn:type(Txn) == blockchain_txn_poc_receipts_v1
         end,
         blockchain_block:transactions(Block)
     ),
-    Current + length(Txns).
+    Current + length(Txns);
+update(<<"validators">>, _Current, _Block) ->
+    {ok, _, [{Count}]} = ?EQUERY(
+        "select count(*) "
+        "from validator_inventory v inner join validator_status s on v.address = s.address "
+        "where s.online = 'online';",
+        []
+    ),
+    Count.
 
 q_insert_stat(Name, Value, Acc) ->
     [{?S_STATS_INSERT, [Name, Value]} | Acc].

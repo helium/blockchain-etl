@@ -231,9 +231,10 @@ peer_online(Address, _PeerBook, Ledger) ->
     {ok, HBInterval} = blockchain:config(?validator_liveness_interval, Ledger),
     {ok, HBGrace} = blockchain:config(?validator_liveness_grace_period, Ledger),
     {ok, Validator} = blockchain_ledger_v1:get_validator(Address, Ledger),
+    {ok, CurrentHeight} = blockchain_ledger_v1:current_height(Ledger),
     case
-        blockchain_ledger_validator_v1:last_heartbeat(Validator) + HBInterval + HBGrace >=
-            blockchain_ledger_v1:current_height(Ledger)
+        (blockchain_ledger_validator_v1:last_heartbeat(Validator) + HBInterval + HBGrace) >=
+            CurrentHeight
     of
         true -> <<"online">>;
         false -> <<"offline">>
