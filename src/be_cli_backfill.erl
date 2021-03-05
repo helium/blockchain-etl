@@ -14,27 +14,29 @@ register_cli() ->
 
 register_all_usage() ->
     lists:foreach(
-        fun(Args) ->
+        fun (Args) ->
             apply(clique, register_usage, Args)
         end,
         [
             backfill_usage(),
             backfill_receipts_challenger_usage(),
             backfill_reversed_receipts_path_usage(),
-            backfill_gateway_names_usage()
+            backfill_gateway_names_usage(),
+            backfill_oui_subnets_usage()
         ]
     ).
 
 register_all_cmds() ->
     lists:foreach(
-        fun(Cmds) ->
+        fun (Cmds) ->
             [apply(clique, register_command, Cmd) || Cmd <- Cmds]
         end,
         [
             backfill_cmd(),
             backfill_receipts_challenger_cmd(),
             backfill_reversed_receipts_path_cmd(),
-            backfill_gateway_names_cmd()
+            backfill_gateway_names_cmd(),
+            backfill_oui_subnets_cmd()
         ]
     ).
 
@@ -50,12 +52,13 @@ backfill_usage() ->
             "  backfill receipts_challeneger   - Backfill the challenger for receipts transactions.\n",
             "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n",
             "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
+            "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
         ]
     ].
 
 backfill_cmd() ->
     [
-        [["backfill"], [], [], fun(_, _, _) -> usage end]
+        [["backfill"], [], [], fun (_, _, _) -> usage end]
     ].
 
 %%
@@ -110,7 +113,7 @@ backfill_receipts_challenger(_CmdBase, Keys, Flags) ->
         MinBlock,
         MaxBlock,
         BatchSize,
-        fun(LastMin, LastMax, LastInserted) ->
+        fun (LastMin, LastMax, LastInserted) ->
             io:format("Processed from ~p to ~p, batch ~p: ~p inserted~n", [
                 LastMin,
                 LastMax,
@@ -162,7 +165,7 @@ backfill_reversed_receipts_path(_CmdBase, Keys, _) ->
     Updated = be_db_backfill:reversed_receipts_path(
         MinBlock,
         MaxBlock,
-        fun(Block, Updated) ->
+        fun (Block, Updated) ->
             io:format("Fixed ~p transactions in block ~p~n", [
                 Updated,
                 Block
@@ -196,4 +199,31 @@ backfill_gateway_names_usage() ->
 
 backfill_gateway_names(_CmdBase, [], _) ->
     Updated = be_db_backfill:gateway_names(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill oui_subnets
+%%
+
+backfill_oui_subnets_cmd() ->
+    [
+        [
+            ["backfill", "oui_subnets"],
+            [],
+            [],
+            fun backfill_oui_subnets/3
+        ]
+    ].
+
+backfill_oui_subnets_usage() ->
+    [
+        ["backfill", "oui_subnets"],
+        [
+            "backfill oui_subnets \n\n",
+            "  Fills the OUI inventory table with the current ledger subnets.\n\n"
+        ]
+    ].
+
+backfill_oui_subnets(_CmdBase, [], _) ->
+    Updated = be_db_backfill:oui_subnets(),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].

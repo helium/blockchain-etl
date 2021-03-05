@@ -80,20 +80,26 @@ to_actors(blockchain_txn_coinbase_v1, T) ->
 to_actors(blockchain_txn_security_coinbase_v1, T) ->
     [{"payee", blockchain_txn_security_coinbase_v1:payee(T)}];
 to_actors(blockchain_txn_oui_v1, T) ->
+    Routers = [{"router", R} || R <- blockchain_txn_oui_v1:addresses(T)],
     [
         {"owner", blockchain_txn_oui_v1:owner(T)},
         {"payer", blockchain_txn_oui_v1:payer(T)}
-    ];
+    ] ++ Routers;
 to_actors(blockchain_txn_gen_gateway_v1, T) ->
     [
         {"gateway", blockchain_txn_gen_gateway_v1:gateway(T)},
         {"owner", blockchain_txn_gen_gateway_v1:owner(T)}
     ];
 to_actors(blockchain_txn_routing_v1, T) ->
+    Routers =
+        case blockchain_txn_routing_v1:action(T) of
+            {update_routers, Addrs} -> [{"router", R} || R <- Addrs];
+            _ -> []
+        end,
     [
         {"owner", blockchain_txn_routing_v1:owner(T)},
         {"payer", blockchain_txn_routing_v1:owner(T)}
-    ];
+    ] ++ Routers;
 to_actors(blockchain_txn_payment_v1, T) ->
     [
         {"payer", blockchain_txn_payment_v1:payer(T)},
