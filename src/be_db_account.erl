@@ -11,7 +11,7 @@
 %% be_db_follower
 -export([init/1, load_block/6]).
 %% hooks
--export([incremental_commit_hook/1, end_commit_hook/1]).
+-export([incremental_commit_hook/1, end_commit_hook/2]).
 
 -record(account, {
     address :: libp2p_crypto:pubkey_bin(),
@@ -153,4 +153,4 @@ incremental_commit_hook(Changes) ->
         Changes
     ).
 
-end_commit_hook(_) -> ok.
+end_commit_hook(_, _) -> ok.
