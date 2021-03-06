@@ -18,4 +18,4 @@ _build
 rebar3.crashdump
 .DS_Store
 data/
-.env
+.env*
