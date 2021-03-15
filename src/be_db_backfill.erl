@@ -3,7 +3,7 @@
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
 
--export([receipts_challenger/4, reversed_receipts_path/3, gateway_names/0]).
+-export([receipts_challenger/4, reversed_receipts_path/3, gateway_names/0, oui_subnets/0]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
     "insert into transaction_actors ",
@@ -97,7 +97,8 @@ reversed_receipts_path(MinBlock, MaxBlock, Fun) ->
                         true ->
                             %% Reversed path, re-store json for transaction
                             Fields = be_txn:to_json(BlockTxn, Ledger, Chain),
-                            {ok, 1} = ?EQUERY(?UPDATE_RECEIPTS_TXN, [Height, TxnHashStr, Fields]),
+                            {ok, 1} =
+                                ?EQUERY(?UPDATE_RECEIPTS_TXN, [Height, TxnHashStr, Fields]),
                             BlockAcc + 1;
                         false ->
                             %% Correct path order, leave json alone
@@ -119,16 +120,47 @@ reversed_receipts_path(MinBlock, MaxBlock, Fun) ->
 %%
 
 gateway_names() ->
-    {ok, _, NoNames} = ?EQUERY(["select address from gateway_inventory where name is null"], []),
+    {ok, _, NoNames} =
+        ?EQUERY(["select address from gateway_inventory where name is null"], []),
 
     lists:foreach(
         fun({Addr}) ->
             {ok, Name} = erl_angry_purple_tiger:animal_name(Addr),
-            {ok, _} = ?EQUERY("update gateway_inventory set name = $2 where address = $1", [
-                Addr,
-                Name
-            ])
+            {ok, _} =
+                ?EQUERY("update gateway_inventory set name = $2 where address = $1", [
+                    Addr,
+                    Name
+                ])
         end,
         NoNames
     ),
     length(NoNames).
+
+%%
+%% Backfill oui entries
+%%
+%%
+
+oui_subnets() ->
+    Chain = blockchain_worker:blockchain(),
+    Ledger = blockchain:ledger(Chain),
+
+    {ok, Routes} = blockchain_ledger_v1:get_routes(Ledger),
+    lists:foreach(
+        fun(Route) ->
+            Oui = blockchain_ledger_routing_v1:oui(Route),
+            Nonce = blockchain_ledger_routing_v1:nonce(Route),
+            Subnets = [
+                be_db_oui:subnet_to_list(S)
+             || S <- blockchain_ledger_routing_v1:subnets(Route)
+            ],
+            {ok, _} =
+                ?EQUERY("update oui_inventory set subnets = $2, nonce = $3 where oui = $1", [
+                    Oui,
+                    Subnets,
+                    Nonce
+                ])
+        end,
+        Routes
+    ),
+    length(Routes).
