@@ -1,52 +1,63 @@
 -module(be_db_follower).
 
--callback init(Args::any()) -> {ok, State::any()} | {error, term()}.
--callback load_block(Conn::term(),
-                     Hash::binary(),
-                     blockchain:block(),
-                     Sync::boolean(),
-                     blockchain_ledger_v1:ledger(),
-                     State::any()) -> {ok, NewState::any()}.
+-callback init(Args :: any()) -> {ok, State :: any()} | {error, term()}.
+-callback load_block(
+    Conn :: term(),
+    Hash :: binary(),
+    blockchain:block(),
+    Sync :: boolean(),
+    blockchain_ledger_v1:ledger(),
+    State :: any()
+) -> {ok, NewState :: any()}.
 
 -behavior(blockchain_follower).
 -include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
 %% blockchain_follower
--export([requires_sync/0, requires_ledger/0,
-         init/1, follower_height/1, load_chain/2, load_block/5, terminate/2]).
+-export([
+    requires_sync/0,
+    requires_ledger/0,
+    init/1,
+    follower_height/1,
+    load_chain/2,
+    load_block/5,
+    terminate/2
+]).
 %% utilities
 -export([maybe_undefined/1, maybe_fn/2, maybe_b64/1, maybe_b58/1, maybe_h3/1]).
 
--define(HANDLER_MODULES,
-        [
-         be_db_block,
-         be_db_txn_actor,
-         be_db_account,
-         be_db_gateway,
-         be_db_oracle_price,
-         be_db_vars,
-         be_db_stats,
-         be_db_reward,
-         be_db_packet
-         ]).
+-define(HANDLER_MODULES, [
+    be_db_block,
+    be_db_txn_actor,
+    be_db_account,
+    be_db_gateway,
+    be_db_oracle_price,
+    be_db_vars,
+    be_db_stats,
+    be_db_reward,
+    be_db_packet,
+    be_db_oui
+]).
 
--record(state,
-        {
-         handler_state :: [{Module::atom(), State::any()}]
-        }).
+-record(state, {
+    handler_state :: [{Module :: atom(), State :: any()}]
+}).
 
 requires_ledger() -> true.
 requires_sync() -> true.
 
 init(_) ->
-    Handlers = lists:map(fun(Mod) ->
-                                 {ok, State} = Mod:init([]),
-                                 {Mod, State}
-                         end, ?HANDLER_MODULES),
-    {ok, #state{handler_state=Handlers}}.
+    Handlers = lists:map(
+        fun(Mod) ->
+            {ok, State} = Mod:init([]),
+            {Mod, State}
+        end,
+        ?HANDLER_MODULES
+    ),
+    {ok, #state{handler_state = Handlers}}.
 
-follower_height(State=#state{}) ->
+follower_height(State = #state{}) ->
     case lists:keyfind(be_db_block, 1, State#state.handler_state) of
         false ->
             error(no_db_block);
@@ -54,23 +65,27 @@ follower_height(State=#state{}) ->
             be_db_block:block_height(BlockState)
     end.
 
-load_chain(_Chain, State=#state{}) ->
+load_chain(_Chain, State = #state{}) ->
     {ok, State}.
 
-load_block(Hash, Block, Sync, Ledger, State=#state{}) ->
+load_block(Hash, Block, Sync, Ledger, State = #state{}) ->
     LoadFun = fun(Conn) ->
-                      States =
-                          lists:foldl(fun({Handler, HandlerState}, HandlerStates) ->
-                                              {ok, NewHandlerState} =
-                                                  Handler:load_block(Conn, Hash, Block, Sync, Ledger, HandlerState),
-                                              [{Handler, NewHandlerState} | HandlerStates]
-                                      end, [], State#state.handler_state),
-                      {ok, lists:reverse(States)}
-              end,
+        States =
+            lists:foldl(
+                fun({Handler, HandlerState}, HandlerStates) ->
+                    {ok, NewHandlerState} =
+                        Handler:load_block(Conn, Hash, Block, Sync, Ledger, HandlerState),
+                    [{Handler, NewHandlerState} | HandlerStates]
+                end,
+                [],
+                State#state.handler_state
+            ),
+        {ok, lists:reverse(States)}
+    end,
 
     lager:info("Storing block: ~p", [blockchain_block_v1:height(Block)]),
     {ok, HandlerStates} = ?WITH_TRANSACTION(LoadFun),
-    {ok, #state{handler_state=HandlerStates}}.
+    {ok, #state{handler_state = HandlerStates}}.
 
 terminate(_Reason, _State) ->
     ok.
