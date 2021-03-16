@@ -100,7 +100,7 @@ on conflict do nothing;
 with data as (
     select
         block,
-        fields->>'owner'::text as owner,
+        (select owner from oui_inventory where oui = (fields->>'oui')::numeric) as owner,
         (fields->>'oui')::numeric as oui,
         (select coalesce(array_agg(a)::text[], array[]::text[]) from jsonb_array_elements_text(fields#>'{actions, addresses}') as a) as addresses,
         (select array[]::int[][]) as subnets

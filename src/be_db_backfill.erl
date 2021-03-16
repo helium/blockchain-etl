@@ -149,17 +149,24 @@ oui_subnets() ->
     lists:foreach(
         fun(Route) ->
             Oui = blockchain_ledger_routing_v1:oui(Route),
+            Owner = ?BIN_TO_B58(blockchain_ledger_routing_v1:owner(Route)),
             Nonce = blockchain_ledger_routing_v1:nonce(Route),
             Subnets = [
                 be_db_oui:subnet_to_list(S)
              || S <- blockchain_ledger_routing_v1:subnets(Route)
             ],
+            Addresses = [?BIN_TO_B58(A) || A <- blockchain_ledger_routing_v1:addresses(Route)],
             {ok, _} =
-                ?EQUERY("update oui_inventory set subnets = $2, nonce = $3 where oui = $1", [
-                    Oui,
-                    Subnets,
-                    Nonce
-                ])
+                ?EQUERY(
+                    "update oui_inventory set subnets = $2, nonce = $3, owner = $4, addresses = $5 where oui = $1",
+                    [
+                        Oui,
+                        Subnets,
+                        Nonce,
+                        Owner,
+                        Addresses
+                    ]
+                )
         end,
         Routes
     ),
