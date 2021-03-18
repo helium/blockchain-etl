@@ -54,10 +54,10 @@ q_insert_transaction_actors(Block, Query, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
     lists:foldl(
-        fun (T, Acc) ->
+        fun(T, Acc) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
             lists:foldl(
-                fun ({Role, Key}, ActorAcc) ->
+                fun({Role, Key}, ActorAcc) ->
                     [
                         {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
                         | ActorAcc
@@ -80,20 +80,26 @@ to_actors(blockchain_txn_coinbase_v1, T) ->
 to_actors(blockchain_txn_security_coinbase_v1, T) ->
     [{"payee", blockchain_txn_security_coinbase_v1:payee(T)}];
 to_actors(blockchain_txn_oui_v1, T) ->
+    Routers = [{"router", R} || R <- blockchain_txn_oui_v1:addresses(T)],
     [
         {"owner", blockchain_txn_oui_v1:owner(T)},
         {"payer", blockchain_txn_oui_v1:payer(T)}
-    ];
+    ] ++ Routers;
 to_actors(blockchain_txn_gen_gateway_v1, T) ->
     [
         {"gateway", blockchain_txn_gen_gateway_v1:gateway(T)},
         {"owner", blockchain_txn_gen_gateway_v1:owner(T)}
     ];
 to_actors(blockchain_txn_routing_v1, T) ->
+    Routers =
+        case blockchain_txn_routing_v1:action(T) of
+            {update_routers, Addrs} -> [{"router", R} || R <- Addrs];
+            _ -> []
+        end,
     [
         {"owner", blockchain_txn_routing_v1:owner(T)},
         {"payer", blockchain_txn_routing_v1:owner(T)}
-    ];
+    ] ++ Routers;
 to_actors(blockchain_txn_payment_v1, T) ->
     [
         {"payer", blockchain_txn_payment_v1:payer(T)},
@@ -155,7 +161,7 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
                 | ChallengeeAcc0
             ],
             WitnessAcc = lists:foldl(
-                fun (W, WAcc) ->
+                fun(W, WAcc) ->
                     [{"witness", blockchain_poc_witness_v1:gateway(W)} | WAcc]
                 end,
                 WitnessAcc0,
@@ -174,7 +180,7 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
 to_actors(blockchain_txn_vars_v1, _T) ->
     [];
 to_actors(blockchain_txn_rewards_v1, T) ->
-    ToActors = fun (R, {PayeeAcc0, GatewayAcc0}) ->
+    ToActors = fun(R, {PayeeAcc0, GatewayAcc0}) ->
         PayeeAcc = [{"payee", blockchain_txn_reward_v1:account(R)} | PayeeAcc0],
         GatewayAcc =
             case blockchain_txn_reward_v1:gateway(R) of
@@ -199,7 +205,7 @@ to_actors(blockchain_txn_dc_coinbase_v1, T) ->
 to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T) ->
     [];
 to_actors(blockchain_txn_payment_v2, T) ->
-    ToActors = fun (Payment, Acc) ->
+    ToActors = fun(Payment, Acc) ->
         [{"payee", blockchain_payment_v2:payee(Payment)} | Acc]
     end,
     lists:foldl(
@@ -215,7 +221,7 @@ to_actors(blockchain_txn_state_channel_open_v1, T) ->
 to_actors(blockchain_txn_state_channel_close_v1, T) ->
     %% NOTE: closer can be one of the clients of the state channel or the owner of the router
     %% if the state_channel expires
-    SummaryToActors = fun (Summary, Acc) ->
+    SummaryToActors = fun(Summary, Acc) ->
         Receiver = blockchain_state_channel_summary_v1:client_pubkeybin(Summary),
         [{"packet_receiver", Receiver} | Acc]
     end,
