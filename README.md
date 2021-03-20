@@ -11,11 +11,11 @@ listening for new block events.
 ## Developer Usage
 
 * Clone this repository
-* Create `.env` file by copying `.env.template` and editing it to
+* Create `.env.dev` file by copying `.env.template` and editing it to
   reflect your postgres and other keys and credentials
 
   **Note:** In order for resets to work the postgres user specified in
-  the `.env` file needs to exist and have `CREATEDB` permissions.
+  the `.env.dev` file needs to exist and have `CREATEDB` permissions.
 
 * Run `make release` in the top level folder
 * Run `make reset` to initialize the database and reset the ledger. You will
@@ -31,6 +31,13 @@ listening for new block events.
 
 Once started the application will start syncing the blockchain and
 loading blocks into the attached database.
+
+You can change the release target (and .env file) using the `PROFILE`
+environment variable, which defaults to `dev`. i.e.:
+
+```
+PROFILE=testnet make start
+```
 
 #### Note
 You may see an error similar to the following during initial sync:
