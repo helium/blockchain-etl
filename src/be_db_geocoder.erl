@@ -38,7 +38,18 @@ prepare_conn(Conn) ->
         epgsql:parse(
             Conn,
             ?S_LOCATION_INSERT,
-            "insert into  locations (location, short_street, long_street, short_city, long_city, short_state, long_state, short_country, long_country) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict do nothing",
+            [
+                "insert into  locations ",
+                "    (location, ",
+                "     short_street, long_street, ",
+                "     short_city, long_city, ",
+                "     short_state, long_state,",
+                "     short_country, long_country,",
+                "     geometry) ",
+                "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, ",
+                "  ST_SetSRID(ST_MakePoint($10, $11), 4326) ",
+                ") on conflict do nothing"
+            ],
             []
         ),
 
@@ -66,13 +77,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    case os:getenv("GOOGLE_MAPS_API_KEY") of
-        false ->
-            %% If no API key don't bother to start checking
-            ok;
-        _ ->
-            self() ! check_locations
-    end,
+    self() ! check_locations,
     {ok, #state{}}.
 
 handle_call(Request, _From, State) ->
@@ -186,12 +191,23 @@ maybe_check_locations(Requests) when map_size(Requests) == 0 ->
 maybe_check_locations(Requests) ->
     Requests.
 
+store_geocode_result(Loc, undefined) ->
+    store_geocode_result(
+        Loc,
+        #{
+            street => {undefined, undefined},
+            city => {undefined, undefined},
+            state => {undefined, undefined},
+            country => {undefined, undefined}
+        }
+    );
 store_geocode_result(Loc, #{
     street := {ShortStreet, LongStreet},
     city := {ShortCity, LongCity},
     state := {ShortState, LongState},
     country := {ShortCountry, LongCountry}
 }) ->
+    {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Loc))),
     ?PREPARED_QUERY(?S_LOCATION_INSERT, [
         Loc,
         ShortStreet,
@@ -201,21 +217,23 @@ store_geocode_result(Loc, #{
         ShortState,
         LongState,
         ShortCountry,
-        LongCountry
+        LongCountry,
+        Lon,
+        Lat
     ]).
 
 -spec request_geocode(h3:h3index() | binary(), [any()]) ->
-    {ok, Status :: integer(), Headers :: list(), hackney:client_ref()} |
-    {ok, Status :: integer(), Headers :: list()} |
-    {ok, hackney:client_ref()} |
-    {error, term()}.
+    {ok, Status :: integer(), Headers :: list(), hackney:client_ref()}
+    | {ok, Status :: integer(), Headers :: list()}
+    | {ok, hackney:client_ref()}
+    | {error, term()}.
 request_geocode(BinLoc, Opts) when is_binary(BinLoc) ->
     request_geocode(h3:from_string(binary_to_list(BinLoc)), Opts);
 request_geocode(Location, Opts) ->
     case os:getenv("GOOGLE_MAPS_API_KEY") of
         false ->
-            %% If no API key don't bother to start checking
-            {error, no_api_key};
+            %% If no API key found just update location geometry
+            store_geocode_result(Location, undefined);
         Key ->
             {Lat, Lon} = h3:to_geo(Location),
             URL =
