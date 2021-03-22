@@ -3,7 +3,13 @@
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
 
--export([receipts_challenger/4, reversed_receipts_path/3, gateway_names/0, oui_subnets/0]).
+-export([
+    receipts_challenger/4,
+    reversed_receipts_path/3,
+    gateway_names/0,
+    oui_subnets/0,
+    location_geometry/0
+]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
     "insert into transaction_actors ",
@@ -139,7 +145,6 @@ gateway_names() ->
 %%
 %% Backfill oui entries
 %%
-%%
 
 oui_subnets() ->
     Chain = blockchain_worker:blockchain(),
@@ -171,3 +176,21 @@ oui_subnets() ->
         Routes
     ),
     length(Routes).
+
+%%
+%% Backfill location geometry
+%%
+
+location_geometry() ->
+    {ok, _, Locations} = ?EQUERY("select location from locations", []),
+    lists:foreach(
+        fun({Location}) ->
+            {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
+            {ok, _} = ?EQUERY(
+                "update locations set geometry = ST_SetSRID(ST_MakePoint($2, $3), 4326) where location = $1",
+                [Location, Lon, Lat]
+            )
+        end,
+        Locations
+    ),
+    length(Locations).

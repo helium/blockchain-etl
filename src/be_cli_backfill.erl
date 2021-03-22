@@ -14,7 +14,7 @@ register_cli() ->
 
 register_all_usage() ->
     lists:foreach(
-        fun (Args) ->
+        fun(Args) ->
             apply(clique, register_usage, Args)
         end,
         [
@@ -22,13 +22,14 @@ register_all_usage() ->
             backfill_receipts_challenger_usage(),
             backfill_reversed_receipts_path_usage(),
             backfill_gateway_names_usage(),
-            backfill_oui_subnets_usage()
+            backfill_oui_subnets_usage(),
+            backfill_location_geometry_usage()
         ]
     ).
 
 register_all_cmds() ->
     lists:foreach(
-        fun (Cmds) ->
+        fun(Cmds) ->
             [apply(clique, register_command, Cmd) || Cmd <- Cmds]
         end,
         [
@@ -36,7 +37,8 @@ register_all_cmds() ->
             backfill_receipts_challenger_cmd(),
             backfill_reversed_receipts_path_cmd(),
             backfill_gateway_names_cmd(),
-            backfill_oui_subnets_cmd()
+            backfill_oui_subnets_cmd(),
+            backfill_location_geometry_cmd()
         ]
     ).
 
@@ -53,12 +55,13 @@ backfill_usage() ->
             "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n",
             "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
             "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
+            "  backfill location_geometry      - Backfill location postgis geometries.\n"
         ]
     ].
 
 backfill_cmd() ->
     [
-        [["backfill"], [], [], fun (_, _, _) -> usage end]
+        [["backfill"], [], [], fun(_, _, _) -> usage end]
     ].
 
 %%
@@ -113,7 +116,7 @@ backfill_receipts_challenger(_CmdBase, Keys, Flags) ->
         MinBlock,
         MaxBlock,
         BatchSize,
-        fun (LastMin, LastMax, LastInserted) ->
+        fun(LastMin, LastMax, LastInserted) ->
             io:format("Processed from ~p to ~p, batch ~p: ~p inserted~n", [
                 LastMin,
                 LastMax,
@@ -165,7 +168,7 @@ backfill_reversed_receipts_path(_CmdBase, Keys, _) ->
     Updated = be_db_backfill:reversed_receipts_path(
         MinBlock,
         MaxBlock,
-        fun (Block, Updated) ->
+        fun(Block, Updated) ->
             io:format("Fixed ~p transactions in block ~p~n", [
                 Updated,
                 Block
@@ -226,4 +229,31 @@ backfill_oui_subnets_usage() ->
 
 backfill_oui_subnets(_CmdBase, [], _) ->
     Updated = be_db_backfill:oui_subnets(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill location_geometry
+%%
+
+backfill_location_geometry_cmd() ->
+    [
+        [
+            ["backfill", "location_geometry"],
+            [],
+            [],
+            fun backfill_location_geometry/3
+        ]
+    ].
+
+backfill_location_geometry_usage() ->
+    [
+        ["backfill", "location_geometry"],
+        [
+            "backfill location_geometry \n\n",
+            "  Updates the locations table with the postgis geometry for each location.\n\n"
+        ]
+    ].
+
+backfill_location_geometry(_CmdBase, [], _) ->
+    Updated = be_db_backfill:location_geometry(),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
