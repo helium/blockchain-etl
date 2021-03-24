@@ -8,6 +8,26 @@ blocks as they're addded to the blockchain by running a full node and
 listening for new block events.
 
 
+## Dependencies
+
+To run blockchain-etl, you will need:
+
+* erlang 22 -- newer versions will not work
+* rust -- we recommend using [rustup](https://rustup.rs/)
+* postgresql + postgis
+
+Optionally you can geocode locations using the [Google Maps Geocoding API](https://developers.google.com/maps/documentation/geocoding/start).
+Register an API key and update `GOOGLE_MAPS_API_KEY=...` in your `.env.dev` file
+
+## Installing Erlang 22 on Ubuntu
+
+```bash
+wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb
+sudo dpkg -i erlang-solutions_2.0_all.deb
+sudo apt-get update
+sudo apt install esl-erlang=1:22.3.4.1-1 cmake libsodium-dev libssl-dev build-essential
+```
+
 ## Developer Usage
 
 * Clone this repository
@@ -46,21 +66,9 @@ You may see an error similar to the following during initial sync:
 
 Check [this](https://superuser.com/a/443168) Superuser answer for a workaround
 on macOS and
-(here)[https://docs.riak.com/riak/kv/latest/using/performance/open-files-limit/index.html]
+[here](https://docs.riak.com/riak/kv/latest/using/performance/open-files-limit/index.html)
 for some instructions on various Linux distributions.
 
-### Installing Ubuntu Required Packages
-
-If running on Ubuntu, you will need the following packages, and rust installed
-before running `make release`:
-
-```bash
-wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb
-sudo dpkg -i erlang-solutions_2.0_all.deb
-sudo apt-get update
-sudo apt install esl-erlang=1:22.3.4.1-1 cmake libsodium-dev libssl-dev build-essential
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
 
 ## WARNING
 
