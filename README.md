@@ -36,7 +36,7 @@ You can change the release target (and .env file) using the `PROFILE`
 environment variable, which defaults to `dev`. i.e.:
 
 ```
-PROFILE=testnet make start
+make start -e PROFILE=testnet
 ```
 
 #### Note
