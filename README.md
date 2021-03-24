@@ -16,7 +16,8 @@ To run blockchain-etl, you will need:
 * rust
 * postgresql + postgis
 
-Optionally you can geocode locations using the [Google Maps Geocoding API](https://developers.google.com/maps/documentation/geocoding/start) and edit `GOOGLE_MAPS_API_KEY=...` in your `.env.dev` file
+Optionally you can geocode locations using the [Google Maps Geocoding API](https://developers.google.com/maps/documentation/geocoding/start).
+Register an API key and update `GOOGLE_MAPS_API_KEY=...` in your `.env.dev` file
 
 ## Installing Erlang 22 on Ubuntu
 
