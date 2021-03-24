@@ -5,7 +5,7 @@ SHORTSHA=`git rev-parse --short HEAD`
 PKG_NAME_VER=${SHORTSHA}
 
 OS_NAME=$(shell uname -s)
-PROFILE := dev
+PROFILE ?= dev
 
 ifeq (${OS_NAME},FreeBSD)
 make="gmake"
