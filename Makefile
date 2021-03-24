@@ -6,6 +6,7 @@ PKG_NAME_VER=${SHORTSHA}
 
 OS_NAME=$(shell uname -s)
 PROFILE ?= dev
+ENVFILE=$(if $(filter $(PROFILE),dev),'.env','.env.$(PROFILE)')
 
 ifeq (${OS_NAME},FreeBSD)
 make="gmake"
@@ -44,14 +45,14 @@ migrations: stop
 	./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl migrations run
 
 start:
-	cp -f .env.$(PROFILE) ./_build/$(PROFILE)/rel/blockchain_etl/.env
+	cp -f $(ENVFILE) ./_build/$(PROFILE)/rel/blockchain_etl/.env
 	./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl start
 
 stop:
 	-./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl stop
 
 reset: stop
-	cp -f .env.$(PROFILE) ./_build/$(PROFILE)/rel/blockchain_etl/.env
+	cp -f $(ENVFILE) ./_build/$(PROFILE)/rel/blockchain_etl/.env
 	rm -rf ./_build/$(PROFILE)/rel/blockchain_etl/data/ledger.db
 	rm -rf ./_build/$(PROFILE)/rel/blockchain_etl/log/*
 	_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl migrations reset
