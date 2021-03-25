@@ -19,3 +19,4 @@ rebar3.crashdump
 .DS_Store
 data/
 .env*
+.tool-versions

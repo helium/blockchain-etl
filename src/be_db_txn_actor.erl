@@ -3,6 +3,8 @@
 -include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
 
+-include_lib("helium_proto/include/blockchain_txn_rewards_v2_pb.hrl").
+
 -behavior(be_db_worker).
 -behavior(be_db_follower).
 
@@ -180,21 +182,25 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
 to_actors(blockchain_txn_vars_v1, _T) ->
     [];
 to_actors(blockchain_txn_rewards_v1, T) ->
-    ToActors = fun(R, {PayeeAcc0, GatewayAcc0}) ->
-        PayeeAcc = [{"payee", blockchain_txn_reward_v1:account(R)} | PayeeAcc0],
-        GatewayAcc =
-            case blockchain_txn_reward_v1:gateway(R) of
-                undefined -> GatewayAcc0;
-                G -> [{"reward_gateway", G} | GatewayAcc0]
-            end,
-        {PayeeAcc, GatewayAcc}
+    ToActors = fun(R, Acc) ->
+        [{"payee", blockchain_txn_reward_v1:account(R)} | Acc]
     end,
-    {Payees, Gateways} = lists:foldl(
+    Payees = lists:foldl(
         ToActors,
-        {[], []},
+        [],
         blockchain_txn_rewards_v1:rewards(T)
     ),
-    lists:usort(Payees) ++ lists:usort(Gateways);
+    lists:usort(Payees);
+to_actors(blockchain_txn_rewards_v2, T) ->
+    ToActors = fun(#blockchain_txn_reward_v2_pb{account = Account}, Acc) ->
+        [{"payee", Account} | Acc]
+    end,
+    Payees = lists:foldl(
+        ToActors,
+        [],
+        blockchain_txn_rewards_v2:rewards(T)
+    ),
+    lists:usort(Payees);
 to_actors(blockchain_txn_token_burn_v1, T) ->
     [
         {"payer", blockchain_txn_token_burn_v1:payer(T)},
