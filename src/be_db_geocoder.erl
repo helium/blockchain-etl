@@ -201,13 +201,15 @@ store_geocode_result(Loc, undefined) ->
             country => {undefined, undefined}
         }
     );
+store_geocode_result(Loc, Map) when is_binary(Loc) ->
+    store_geocode_result(h3:from_string(binary_to_list(Loc)), Map);
 store_geocode_result(Loc, #{
     street := {ShortStreet, LongStreet},
     city := {ShortCity, LongCity},
     state := {ShortState, LongState},
     country := {ShortCountry, LongCountry}
-}) ->
-    {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Loc))),
+}) when is_number(Loc) ->
+    {Lat, Lon} = h3:to_geo(Loc),
     ?PREPARED_QUERY(?S_LOCATION_INSERT, [
         Loc,
         ShortStreet,
