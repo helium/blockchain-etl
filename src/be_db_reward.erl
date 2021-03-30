@@ -93,8 +93,10 @@ collect_rewards(blockchain_txn_rewards_v2, Chain, Txn, RewardMap) ->
         Chain
     ),
     maps:fold(
-        fun(_RewardCategory, Rewards, Acc) ->
-            collect_v2_rewards(Rewards, Ledger, Acc)
+        fun(overages, _Amount, Acc) ->
+                Acc;
+           (_RewardCategory, Rewards, Acc) ->
+                collect_v2_rewards(Rewards, Ledger, Acc)
         end,
         RewardMap,
         Metadata
