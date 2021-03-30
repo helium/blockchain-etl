@@ -123,6 +123,19 @@ collect_v2_rewards(Rewards, Ledger, RewardMap) ->
                             Amt,
                             Acc
                         )
+                end;
+            ({validator, _Type, V}, Amt, Acc) ->
+                case blockchain_ledger_v1:get_validator(V, Ledger) of
+                    {error, _Error} ->
+                        Acc;
+                    {ok, Val} ->
+                        Owner = blockchain_ledger_validator_v1:owner_address(Val),
+                        maps:update_with(
+                            {Owner, V},
+                            fun(Balance) -> Balance + Amt end,
+                            Amt,
+                            Acc
+                        )
                 end
         end,
         RewardMap,
