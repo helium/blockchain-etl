@@ -140,6 +140,19 @@ to_actors(blockchain_txn_assert_location_v1, T) ->
         {"owner", Owner},
         {"payer", Payer}
     ];
+to_actors(blockchain_txn_assert_location_v2, T) ->
+    Owner = blockchain_txn_assert_location_v2:owner(T),
+    Payer =
+        case blockchain_txn_assert_location_v2:payer(T) of
+            undefined -> Owner;
+            <<>> -> Owner;
+            P -> P
+        end,
+    [
+        {"gateway", blockchain_txn_assert_location_v2:gateway(T)},
+        {"owner", Owner},
+        {"payer", Payer}
+    ];
 to_actors(blockchain_txn_create_htlc_v1, T) ->
     [
         {"payer", blockchain_txn_create_htlc_v1:payer(T)},

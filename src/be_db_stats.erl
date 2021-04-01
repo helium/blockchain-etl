@@ -113,7 +113,8 @@ update(<<"cities">>, Current, Block) ->
     case
         lists:any(
             fun(Txn) ->
-                blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1
+                blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1 orelse
+                    blockchain_txn:type(Txn) == blockchain_txn_assert_location_v2
             end,
             blockchain_block:transactions(Block)
         )
@@ -134,7 +135,8 @@ update(<<"countries">>, Current, Block) ->
     case
         lists:any(
             fun(Txn) ->
-                blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1
+                blockchain_txn:type(Txn) == blockchain_txn_assert_location_v1 orelse
+                    blockchain_txn:type(Txn) == blockchain_txn_assert_location_v2
             end,
             blockchain_block:transactions(Block)
         )
