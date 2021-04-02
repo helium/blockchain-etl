@@ -195,15 +195,21 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
 to_actors(blockchain_txn_vars_v1, _T) ->
     [];
 to_actors(blockchain_txn_rewards_v1, T) ->
-    ToActors = fun(R, Acc) ->
-        [{"payee", blockchain_txn_reward_v1:account(R)} | Acc]
+    ToActors = fun(R, {PayeeAcc0, GatewayAcc0}) ->
+        PayeeAcc = [{"payee", blockchain_txn_reward_v1:account(R)} | PayeeAcc0],
+        GatewayAcc =
+            case blockchain_txn_reward_v1:gateway(R) of
+                undefined -> GatewayAcc0;
+                G -> [{"reward_gateway", G} | GatewayAcc0]
+            end,
+        {PayeeAcc, GatewayAcc}
     end,
-    Payees = lists:foldl(
+    {Payees, Gateways} = lists:foldl(
         ToActors,
-        [],
+        {[], []},
         blockchain_txn_rewards_v1:rewards(T)
     ),
-    lists:usort(Payees);
+    lists:usort(Payees) ++ lists:usort(Gateways);
 to_actors(blockchain_txn_rewards_v2, T) ->
     ToActors = fun(#blockchain_txn_reward_v2_pb{account = Account}, Acc) ->
         [{"payee", Account} | Acc]

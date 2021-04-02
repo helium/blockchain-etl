@@ -8,7 +8,8 @@
     reversed_receipts_path/3,
     gateway_names/0,
     oui_subnets/0,
-    location_geometry/0
+    location_geometry/0,
+    reward_gateways/2
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -194,3 +195,27 @@ location_geometry() ->
         Locations
     ),
     length(Locations).
+
+%%
+%% Backfill reward_gateway
+%%
+
+-define(INSERT_REWARD_GATEWAYS, [
+    "with data as ( ",
+    "select ",
+    "    block, ",
+    "    hash, ",
+    "    (r.reward->'gateway')::text as address ",
+    "from transactions t1 ",
+    "left join jsonb_array_elements(t1.fields->'rewards') as r(reward) on true ",
+    "where type = 'rewards_v1'  ",
+    "and block between $1 and $2 ",
+    ") ",
+    "insert into transaction_actors (actor, actor_role, transaction_hash, block) ",
+    "    select address, 'reward_gateway', hash, block from data ",
+    "on conflict do nothing"
+]).
+
+reward_gateways(MinBlock, MaxBlock) ->
+    {ok, Inserted} = ?EQUERY(?INSERT_REWARD_GATEWAYS, [MinBlock, MaxBlock]),
+    Inserted.
