@@ -23,7 +23,8 @@ register_all_usage() ->
             backfill_reversed_receipts_path_usage(),
             backfill_gateway_names_usage(),
             backfill_oui_subnets_usage(),
-            backfill_location_geometry_usage()
+            backfill_location_geometry_usage(),
+            backfill_reward_gateways_usage()
         ]
     ).
 
@@ -38,7 +39,8 @@ register_all_cmds() ->
             backfill_reversed_receipts_path_cmd(),
             backfill_gateway_names_cmd(),
             backfill_oui_subnets_cmd(),
-            backfill_location_geometry_cmd()
+            backfill_location_geometry_cmd(),
+            backfill_reward_gateways_cmd()
         ]
     ).
 
@@ -56,6 +58,7 @@ backfill_usage() ->
             "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
             "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
             "  backfill location_geometry      - Backfill location postgis geometries.\n"
+            "  backfill reward_gateways        - Backfill reward gateways.\n"
         ]
     ].
 
@@ -256,4 +259,48 @@ backfill_location_geometry_usage() ->
 
 backfill_location_geometry(_CmdBase, [], _) ->
     Updated = be_db_backfill:location_geometry(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill reward_gateways
+%%
+
+backfill_reward_gateways_cmd() ->
+    [
+        [
+            ["backfill", "reward_gateways"],
+            [
+                {max, [{longname, "max"}, {datatype, integer}]},
+                {min, [{longname, "min"}, {datatype, integer}]}
+            ],
+            [],
+            fun backfill_reward_gateways/3
+        ]
+    ].
+
+backfill_reward_gateways_usage() ->
+    [
+        ["backfill", "reward_gateways"],
+        [
+            "backfill reward gateways in transacion actors for max=<max_block> min=<min_block>\n\n",
+            "  Inserts missing reward_gateway actors for rewards_v1 transactions.\n\n"
+            "  Run this migration for the range of blocks that ran version 1.1.77.\n\n"
+            "Requires:\n\n"
+            "  <max>\n"
+            "    The maximum block to start search for transactions.\n"
+            "  <min>\n"
+            "    The block to end searches at. \n\n"
+        ]
+    ].
+
+backfill_reward_gateways(_CmdBase, [], []) ->
+    usage;
+backfill_reward_gateways(_CmdBase, Keys, _) ->
+    MinBlock = proplists:get_value(min, Keys),
+    MaxBlock = proplists:get_value(max, Keys),
+
+    Updated = be_db_backfill:reward_gateways(
+        MinBlock,
+        MaxBlock
+    ),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
