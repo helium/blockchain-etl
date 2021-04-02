@@ -211,7 +211,7 @@ store_geocode_result(Loc, #{
 }) when is_number(Loc) ->
     {Lat, Lon} = h3:to_geo(Loc),
     ?PREPARED_QUERY(?S_LOCATION_INSERT, [
-        Loc,
+        list_to_binary(h3:to_string(Loc)),
         ShortStreet,
         LongStreet,
         ShortCity,
