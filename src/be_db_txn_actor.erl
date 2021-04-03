@@ -211,15 +211,48 @@ to_actors(blockchain_txn_rewards_v1, T) ->
     ),
     lists:usort(Payees) ++ lists:usort(Gateways);
 to_actors(blockchain_txn_rewards_v2, T) ->
-    ToActors = fun(#blockchain_txn_reward_v2_pb{account = Account}, Acc) ->
-        [{"payee", Account} | Acc]
-    end,
-    Payees = lists:foldl(
-        ToActors,
-        [],
-        blockchain_txn_rewards_v2:rewards(T)
+    Start = blockchain_txn_rewards_v2:start_epoch(T),
+    End = blockchain_txn_rewards_v2:end_epoch(T),
+    %% rewards_v2 violates to_actor conventions by requiring the chain and
+    %% ledger to construct it actors
+    Chain = blockchain_worker:blockchain(),
+    {ok, Ledger} = blockchain:ledger_at(End, Chain),
+    {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
+        Start,
+        End,
+        Chain
     ),
-    lists:usort(Payees);
+    %% Take a rewards map for a category and add payees and reward_gateways to
+    %% one or both of the payee or gateway accumulators
+    ToActors = fun(Rewards, Acc) ->
+        maps:fold(
+            fun
+                ({owner, _Type, O}, _Amt, {PayeeAcc, GatewayAcc}) ->
+                    {[{"payee", O} | PayeeAcc], GatewayAcc};
+                ({gateway, _Type, G}, _Amt, {PayeeAcc, GatewayAcc}) ->
+                    case blockchain_ledger_v1:find_gateway_owner(G, Ledger) of
+                        {error, _Error} ->
+                            {PayeeAcc, [{"reward_gateway", G} | GatewayAcc]};
+                        {ok, GwOwner} ->
+                            {[{"payee", GwOwner} | PayeeAcc], [{"reward_gateway", G} | GatewayAcc]}
+                    end
+            end,
+            Acc,
+            maps:iterator(Rewards)
+        )
+    end,
+    %% Now fold over the metadata and call ToActors for each reward category
+    {Payees, Gateways} = maps:fold(
+        fun
+            (overages, _Amount, Acc) ->
+                Acc;
+            (_RewardCategory, Rewards, Acc) ->
+                ToActors(Rewards, Acc)
+        end,
+        {[], []},
+        Metadata
+    ),
+    lists:usort(Payees) ++ lists:usort(Gateways);
 to_actors(blockchain_txn_token_burn_v1, T) ->
     [
         {"payer", blockchain_txn_token_burn_v1:payer(T)},
