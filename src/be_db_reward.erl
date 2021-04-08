@@ -146,7 +146,7 @@ q_insert_reward(BlockHeight, TxnHash, BlockTime, {{Account, Gateway}, Amount}, Q
         TxnHash,
         BlockTime,
         ?BIN_TO_B58(Account),
-        ?BIN_TO_B58(Gateway),
+        ?MAYBE_B58(Gateway),
         Amount
     ],
     [{?S_INSERT_REWARD, Params} | Queries].
