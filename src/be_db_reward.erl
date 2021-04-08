@@ -93,9 +93,10 @@ collect_rewards(blockchain_txn_rewards_v2, Chain, Txn, RewardMap) ->
         Chain
     ),
     maps:fold(
-        fun(overages, _Amount, Acc) ->
+        fun
+            (overages, _Amount, Acc) ->
                 Acc;
-           (_RewardCategory, Rewards, Acc) ->
+            (_RewardCategory, Rewards, Acc) ->
                 collect_v2_rewards(Rewards, Ledger, Acc)
         end,
         RewardMap,
@@ -107,7 +108,7 @@ collect_v2_rewards(Rewards, Ledger, RewardMap) ->
         fun
             ({owner, _Type, O}, Amt, Acc) ->
                 maps:update_with(
-                    {O, undefined},
+                    {O, <<>>},
                     fun(Balance) -> Balance + Amt end,
                     Amt,
                     Acc
@@ -146,7 +147,7 @@ q_insert_reward(BlockHeight, TxnHash, BlockTime, {{Account, Gateway}, Amount}, Q
         TxnHash,
         BlockTime,
         ?BIN_TO_B58(Account),
-        ?MAYBE_B58(Gateway),
+        ?BIN_TO_B58(Gateway),
         Amount
     ],
     [{?S_INSERT_REWARD, Params} | Queries].
