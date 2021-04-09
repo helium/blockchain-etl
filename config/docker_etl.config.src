@@ -1,0 +1,16 @@
+[
+ "config/sys.config",
+ {lager,
+  [
+   {log_root, "/var/data/log"},
+   {handlers,
+    [
+     {lager_file_backend, [{file, "console.log"}, {size, 10485760}, {date, "$D0"}, {count, 5}, {level, info}]},
+     {lager_file_backend, [{file, "error.log"}, {size, 10485760}, {date, "$D0"}, {count, 5}, {level, error}]}
+    ]}
+  ]},
+ {libp2p,
+  [
+   {nat_map, #{ {"${NAT_INTERNAL_IP}", "${NAT_INTERNAL_PORT}"} => {"${NAT_EXTERNAL_IP}", "${NAT_EXTERNAL_PORT}"}}}
+  ]}
+].
