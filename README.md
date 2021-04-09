@@ -81,6 +81,28 @@ which allows the application to reload the database.
 **NOTE**: Please refer to the release notes for each release. Unless otherwise
 indicated you should _not_ do a `make reset`
 
-## IN PROGRESS
+## Using Docker
 
-* Docker setup
+### Building the Docker Image
+
+`docker build -t helium/etl .`
+
+### Running the Migrations
+
+Be sure to replace with your DATABASE_URL below.
+
+```
+docker run -e DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain helium/etl migrations reset
+```
+
+### Running the Docker Container
+```
+docker run -d --init \
+--publish 2154:2154/tcp \
+--name etl \
+--mount type=bind,source=$HOME/etl_data,target=/var/data \
+-e DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+helium/etl
+```
+
+
