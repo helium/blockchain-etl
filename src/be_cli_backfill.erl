@@ -53,7 +53,7 @@ backfill_usage() ->
         ["backfill"],
         [
             "backfill commands\n\n",
-            "  backfill receipts_challeneger   - Backfill the challenger for receipts transactions.\n",
+            "  backfill receipts_challenger    - Backfill the challenger for receipts transactions.\n",
             "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n",
             "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
             "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
