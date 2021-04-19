@@ -40,7 +40,8 @@ prepare_conn(Conn) ->
                      ["UPDATE pending_transactions SET ",
                       "status = 'failed', ",
                       "failed_reason = $2 ",
-                      "WHERE created_at = $1"],
+                      "WHERE created_at = $1 ",
+                      "AND status != 'cleared' "],
                      []),
 
     {ok, S5} =
