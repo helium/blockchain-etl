@@ -1,7 +1,20 @@
 #!/bin/sh
 if [ -t 0 ] ; then
-    export CLIQUE_COLUMNS=`stty size 2>/dev/null | cut -d ' ' -f 2`
+    CLIQUE_COLUMNS=$(stty size 2>/dev/null | cut -d ' ' -f 2)
+    export CLIQUE_COLUMNS
 fi
+
+j=1
+l=$#
+buf="[[\"backfill\","
+while [ $j -le $l ]; do
+    buf="$buf\"$1\","
+    j=$(( j + 1 ))
+    shift
+done
+
+buf="${buf%?}]]"
+
 export NODETOOL_TIMEOUT=5400000
-relx_nodetool rpc be_console command backfill $@
-exit $? 
+relx_nodetool rpc blockchain_console command "$buf"
+exit $?

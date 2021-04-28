@@ -14,7 +14,7 @@ ENV CC=gcc CXX=g++ CFLAGS="-U__sun__" \
 # Add our code
 ADD . /usr/src/etl/
 
-RUN rebar3 as docker_etl tar
+RUN ./rebar3 as docker_etl tar
 RUN mkdir -p /opt/docker
 RUN tar -zxvf _build/docker_etl/rel/*/*.tar.gz -C /opt/docker
 RUN mkdir -p /opt/docker/update
