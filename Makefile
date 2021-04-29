@@ -46,7 +46,7 @@ migrations: stop
 
 start:
 	cp -f $(ENVFILE) ./_build/$(PROFILE)/rel/blockchain_etl/.env
-	./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl start
+	./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl daemon
 
 stop:
 	-./_build/$(PROFILE)/rel/blockchain_etl/bin/blockchain_etl stop
