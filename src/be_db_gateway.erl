@@ -175,10 +175,12 @@ witnesses_to_json(Witnesses) ->
 witness_to_json(Witness) ->
     #{
         <<"histogram">> => blockchain_ledger_gateway_v2:witness_hist(Witness),
-        <<"first_time">> => ?MAYBE_UNDEFINED(
+        <<"first_time">> => ?MAYBE_FN(
+            fun(V) -> integer_to_binary(V) end,
             blockchain_ledger_gateway_v2:witness_first_time(Witness)
         ),
-        <<"recent_time">> => ?MAYBE_UNDEFINED(
+        <<"recent_time">> => ?MAYBE_FN(
+            fun(V) -> integer_to_binary(V) end,
             blockchain_ledger_gateway_v2:witness_recent_time(Witness)
         )
     }.
