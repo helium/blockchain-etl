@@ -1,5 +1,8 @@
 #!/bin/sh
 
+CONFIG=$(find $ROOTDIR/releases -name sys.config)
 LIB_DIR=$ROOTDIR/lib
 
-exec $BINDIR/$PROGNAME -pa $LIB_DIR/*/ebin -boot "$ROOTDIR/bin/start_clean" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
+BOOTFILE=$(find $RELEASE_ROOT_DIR -name start_clean.boot | sort | tail -1 | sed 's/\.boot$//')
+
+exec $BINDIR/$PROGNAME erl -pa $LIB_DIR/*/ebin -boot $(basename $BOOTFILE) -boot_var SYSTEM_LIB_DIR "$SYSTEM_LIB_DIR" -config "$RELX_CONFIG_PATH" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
