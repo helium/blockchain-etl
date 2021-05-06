@@ -10,6 +10,7 @@
     State :: any()
 ) -> {ok, NewState :: any()}.
 
+-dialyzer(no_undefined_callbacks).
 -behavior(blockchain_follower).
 
 -include("be_db_follower.hrl").
