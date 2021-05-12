@@ -24,7 +24,8 @@ register_all_usage() ->
             backfill_gateway_names_usage(),
             backfill_oui_subnets_usage(),
             backfill_location_geometry_usage(),
-            backfill_reward_gateways_usage()
+            backfill_reward_gateways_usage(),
+            backfill_gateway_location_hex_usage()
         ]
     ).
 
@@ -40,7 +41,8 @@ register_all_cmds() ->
             backfill_gateway_names_cmd(),
             backfill_oui_subnets_cmd(),
             backfill_location_geometry_cmd(),
-            backfill_reward_gateways_cmd()
+            backfill_reward_gateways_cmd(),
+            backfill_gateway_location_hex_cmd()
         ]
     ).
 
@@ -59,6 +61,7 @@ backfill_usage() ->
             "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
             "  backfill location_geometry      - Backfill location postgis geometries.\n"
             "  backfill reward_gateways        - Backfill reward gateways.\n"
+            "  backfill gateways_location_hex  - Backfill location hex in gateway_inventory.\n"
         ]
     ].
 
@@ -303,4 +306,31 @@ backfill_reward_gateways(_CmdBase, Keys, _) ->
         MinBlock,
         MaxBlock
     ),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill gateway_location_hex
+%%
+
+backfill_gateway_location_hex_cmd() ->
+    [
+        [
+            ["backfill", "gateway_location_hex"],
+            [],
+            [],
+            fun backfill_gateway_location_hex/3
+        ]
+    ].
+
+backfill_gateway_location_hex_usage() ->
+    [
+        ["backfill", "gateway_location_hex"],
+        [
+            "backfill location_hex \n\n",
+            "  Fixes NULL location_hex entries in the gateway_inventory table.\n\n"
+        ]
+    ].
+
+backfill_gateway_location_hex(_CmdBase, [], _) ->
+    Updated = be_db_backfill:gateway_location_hex(),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
