@@ -15,6 +15,6 @@ done
 
 buf="${buf%?}]]"
 
-export NODETOOL_TIMEOUT=5400000
+export NODETOOL_TIMEOUT=54000000
 relx_nodetool rpc blockchain_console command "$buf"
 exit $?

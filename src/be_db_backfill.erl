@@ -9,7 +9,8 @@
     gateway_names/0,
     oui_subnets/0,
     location_geometry/0,
-    reward_gateways/2
+    reward_gateways/2,
+    gateway_location_hex/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -219,3 +220,29 @@ location_geometry() ->
 reward_gateways(MinBlock, MaxBlock) ->
     {ok, Inserted} = ?EQUERY(?INSERT_REWARD_GATEWAYS, [MinBlock, MaxBlock]),
     Inserted.
+
+%%
+%% Fill in gateway location_hes if they're null
+%%
+
+gateway_location_hex() ->
+    {ok, _, NoLocs} =
+        ?EQUERY(
+            [
+                "select address, location from gateway_inventory where location is not null and location_hex is null"
+            ],
+            []
+        ),
+
+    lists:foreach(
+        fun({Addr, LocationBin}) ->
+            Location = h3:from_string(binary_to_list(LocationBin)),
+            {ok, _} =
+                ?EQUERY("update gateway_inventory set location_hex = $2 where address = $1", [
+                    Addr,
+                    ?MAYBE_H3(?MAYBE_FN(fun be_db_gateway:calculate_location_hex/1, Location))
+                ])
+        end,
+        NoLocs
+    ),
+    length(NoLocs).

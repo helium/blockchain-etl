@@ -8,6 +8,8 @@
 -export([init/1, load_block/6]).
 %% hooks
 -export([incremental_commit_hook/1, end_commit_hook/2]).
+%% api
+-export([calculate_location_hex/1]).
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
@@ -26,7 +28,7 @@ prepare_conn(Conn) ->
             Conn,
             ?S_INSERT_GATEWAY,
             [
-                "insert into gateways (block, time, address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name, reward_scale, elevation, gain) select ",
+                "insert into gateways (block, time, address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name, reward_scale, elevation, gain, location_hex) select ",
                 "$1 as block, ",
                 "$2 as time, ",
                 "$3 as address, ",
@@ -39,7 +41,8 @@ prepare_conn(Conn) ->
                 "$10 as name, ",
                 "$11 as reward_scale, ",
                 "$12 as elevation, ",
-                "$13 as gain; "
+                "$13 as gain, ",
+                "$14 as location_hex; "
             ],
             []
         ),
@@ -159,9 +162,19 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
         Name,
         RewardScale,
         blockchain_ledger_gateway_v2:elevation(GW),
-        blockchain_ledger_gateway_v2:gain(GW)
+        blockchain_ledger_gateway_v2:gain(GW),
+        ?MAYBE_H3(?MAYBE_FN(fun calculate_location_hex/1, Location))
     ],
     {?S_INSERT_GATEWAY, Params}.
+
+-define(H3_LOCATION_RES, 8).
+
+-spec calculate_location_hex(h3:h3index()) -> h3:h3index().
+calculate_location_hex(Location) ->
+    case h3:get_resolution(Location) =< ?H3_LOCATION_RES of
+        true -> Location;
+        false -> h3:parent(Location, ?H3_LOCATION_RES)
+    end.
 
 witnesses_to_json(Witnesses) ->
     maps:fold(
