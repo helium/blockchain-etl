@@ -5,4 +5,4 @@ LIB_DIR=$ROOTDIR/lib
 
 BOOTFILE=$(find $RELEASE_ROOT_DIR -name start_clean.boot | sort | tail -1 | sed 's/\.boot$//')
 
-exec $BINDIR/$PROGNAME erl -pa $LIB_DIR/*/ebin -boot $(basename $BOOTFILE) -boot_var SYSTEM_LIB_DIR "$SYSTEM_LIB_DIR" -config "$RELX_CONFIG_PATH" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
+exec $BINDIR/$PROGNAME erl -pa $LIB_DIR/*/ebin -boot $BOOTFILE -boot_var SYSTEM_LIB_DIR "$SYSTEM_LIB_DIR" -config "$RELX_CONFIG_PATH" -noshell -eval "psql_migration:main(\"$*\")" -eval 'init:stop()'
