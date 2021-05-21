@@ -28,7 +28,7 @@ prepare_conn(Conn) ->
             Conn,
             ?S_INSERT_GATEWAY,
             [
-                "insert into gateways (block, time, address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name, reward_scale, elevation, gain, location_hex) select ",
+                "insert into gateways (block, time, address, owner, location, last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce, name, reward_scale, elevation, gain, location_hex, mode) select ",
                 "$1 as block, ",
                 "$2 as time, ",
                 "$3 as address, ",
@@ -42,7 +42,8 @@ prepare_conn(Conn) ->
                 "$11 as reward_scale, ",
                 "$12 as elevation, ",
                 "$13 as gain, ",
-                "$14 as location_hex; "
+                "$14 as location_hex, ",
+                "$15 as mode; "
             ],
             []
         ),
@@ -163,7 +164,8 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
         RewardScale,
         blockchain_ledger_gateway_v2:elevation(GW),
         blockchain_ledger_gateway_v2:gain(GW),
-        ?MAYBE_H3(?MAYBE_FN(fun calculate_location_hex/1, Location))
+        ?MAYBE_H3(?MAYBE_FN(fun calculate_location_hex/1, Location)),
+        blockchain_ledger_gateway_v2:mode(GW)
     ],
     {?S_INSERT_GATEWAY, Params}.
 
