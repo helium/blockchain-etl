@@ -27,7 +27,7 @@
   0},
  {<<"epgsql">>,{pkg,<<"epgsql">>,<<"4.3.0">>},0},
  {<<"eql">>,
-  {git,"git://github.com/artemeff/eql.git",
+  {git,"https://github.com/artemeff/eql.git",
        {ref,"a6727a3f878bfdd06648b7a886cbd2c0630db172"}},
   1},
  {<<"erbloom">>,
