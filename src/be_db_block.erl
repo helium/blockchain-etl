@@ -137,9 +137,8 @@ maybe_write_snapshot(_, _, false, _Chain) ->
 maybe_write_snapshot(_, <<>>, _, _Chain) ->
     ok;
 maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
-    {ok, Snapshot} = blockchain:get_snapshot(SnapshotHash, Chain),
+    {ok, BinSnap} = blockchain:get_snapshot(SnapshotHash, Chain),
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
-    {ok, BinSnap} = blockchain_ledger_snapshot_v1:serialize(Snapshot),
     ok = file:write_file(Filename, BinSnap).
 
 q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
