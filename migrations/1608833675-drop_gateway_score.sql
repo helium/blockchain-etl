@@ -1,27 +1,27 @@
 -- migrations/1608833675-drop_gateway_score.sql
 -- :up
 
-alter table gateways 
-drop column if exists alpha, 
-drop column if exists beta, 
-drop column if exists delta, 
+alter table gateways
+drop column if exists alpha,
+drop column if exists beta,
+drop column if exists delta,
 drop column if exists score;
 
-alter table gateway_inventory 
-drop column if exists alpha, 
-drop column if exists beta, 
-drop column if exists delta, 
+alter table gateway_inventory
+drop column if exists alpha,
+drop column if exists beta,
+drop column if exists delta,
 drop column if exists score;
 
 CREATE OR REPLACE FUNCTION gateway_inventory_update()
 RETURNS TRIGGER AS $$
 BEGIN
   insert into gateway_inventory
-         (address, name, owner, location, 
+         (address, name, owner, location,
           last_poc_challenge, last_poc_onion_key_hash, witnesses, nonce,
           first_block, last_block, first_timestamp)
   VALUES
-        (NEW.address, NEW.name, NEW.owner, NEW.location, 
+        (NEW.address, NEW.name, NEW.owner, NEW.location,
         NEW.last_poc_challenge, NEW.last_poc_onion_key_hash, NEW.witnesses, NEW.nonce,
         NEW.block, NEW.block, to_timestamp(NEW.time)
         )
@@ -38,5 +38,3 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- :down
--- there is really no way to get all that score data back

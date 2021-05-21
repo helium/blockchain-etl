@@ -25,15 +25,11 @@ CREATE TABLE gateways (
 
 CREATE INDEX gateway_owner_idx on gateways(owner);
 
--- A collapsed view of gateways that includes all gateways at the
--- highest block
 create materialized view gateway_ledger as
        select * from gateways
        where (block, address) in
              (select max(block) as block, address from gateways group by address);
 
--- This allows a quick lookup of a gateway by it's owner. Any index on
--- the materialized view also allows a concurrent view refresh
 create unique index gateway_ledger_gateway_idx on gateway_ledger(address);
 
 

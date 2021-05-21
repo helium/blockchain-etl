@@ -7,5 +7,3 @@ insert into transaction_actors
 insert into transaction_actors
     (select actor, 'payee' as actor_role, transaction_hash, block from transaction_actors where actor_role = 'sc_closer');
 
--- :down
--- We're not going to down migrate some extra actors

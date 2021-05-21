@@ -1,6 +1,5 @@
 -- migrations/1597773017-rewards.sql
 -- :up
--- 
 
 create table rewards (
        block bigint not null references blocks(height) on delete cascade,
@@ -31,9 +30,6 @@ begin
     end loop;
 end; $$
 language plpgsql;
-
--- Do teh actual migration of all existing rewards transactions.
--- NOTE: This will take over 30 minutes
 
 set synchronous_commit = off;
 alter table rewards set (autovacuum_enabled = false);

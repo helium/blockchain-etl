@@ -1,7 +1,9 @@
--module(be_db_gateway_status).
+-module(be_db_validator_status).
 
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
+
+-include_lib("blockchain/include/blockchain_vars.hrl").
 
 -behaviour(gen_server).
 
@@ -22,7 +24,7 @@
 
 -export([adjust_request_rate/0]).
 
-%% Status for all hotspots in the gateway_inventory table is attempted
+%% Status for all validators in the validator_inventory table is attempted
 %% to be updated every 10 minutes (see query S1 below in
 %% prepare_conn).
 %%
@@ -32,14 +34,11 @@
 %%  those of in parallel.
 %%
 %% The request rate is automatically adapted to be higher as more
-%% hotspots come online.
+%% validators come online.
 -define(STATUS_REFRESH_MINS, 10).
 %% Maximum number of status updates per second to limit the number of
 %% spawned updates.
 -define(MAX_REQUEST_RATE, 200).
-%% A peer is recently added if it's (first) add_gateway transaction is in the
-%% last "24 hours" in blocks (60 blocks per hour assumed)
--define(PEER_RECENTLY_ADDED_BLOCKS, 60 * 24).
 
 %%
 %% Utility API
@@ -61,9 +60,8 @@ adjust_request_rate() ->
 %% be_db_worker
 %%
 
--define(S_STATUS_UNKNOWN_LIST, "gateway_status_unknown_list").
--define(S_STATUS_INSERT, "gateway_status_insert").
--define(S_PEER_ADDED, "gateway_peer_added").
+-define(S_STATUS_UNKNOWN_LIST, "validator_status_unknown_list").
+-define(S_STATUS_INSERT, "validator_status_insert").
 
 prepare_conn(Conn) ->
     {ok, S1} =
@@ -71,8 +69,8 @@ prepare_conn(Conn) ->
             Conn,
             ?S_STATUS_UNKNOWN_LIST,
             [
-                "select g.address from gateway_inventory g",
-                "  left join gateway_status s on s.address = g.address ",
+                "select v.address from validator_inventory v",
+                "  left join validator_status s on s.address = v.address ",
                 "where coalesce(updated_at, to_timestamp(0)) ",
                 "    < (now() - '",
                 integer_to_list(?STATUS_REFRESH_MINS),
@@ -87,43 +85,25 @@ prepare_conn(Conn) ->
             Conn,
             ?S_STATUS_INSERT,
             [
-                "insert into gateway_status as status ",
+                "insert into validator_status as status ",
                 "(address, ",
                 " online, ",
-                " poc_interval, ",
-                " last_challenge, ",
                 " block, ",
                 " peer_timestamp, ",
                 " listen_addrs ",
-                ") values ($1, $2, $3, $4, $5, to_timestamp($6::double precision / 1000), $7) ",
+                ") values ($1, $2, $3, to_timestamp($4::double precision / 1000), $5) ",
                 "on conflict (address) do update ",
                 "set ",
                 "    online = EXCLUDED.online,",
-                "    last_challenge = EXCLUDED.last_challenge,",
-                "    poc_interval = EXCLUDED.poc_interval,",
                 "    block = coalesce(EXCLUDED.block, status.block),"
                 "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp),",
                 "    listen_addrs = EXCLUDED.listen_addrs;"
             ],
             []
         ),
-    {ok, S3} =
-        epgsql:parse(
-            Conn,
-            ?S_PEER_ADDED,
-            [
-                "select block ",
-                "from transaction_actors ",
-                "where actor = $1 and actor_role = 'gateway' ",
-                "order by block ",
-                "limit 1"
-            ],
-            []
-        ),
     #{
         ?S_STATUS_UNKNOWN_LIST => S1,
-        ?S_STATUS_INSERT => S2,
-        ?S_PEER_ADDED => S3
+        ?S_STATUS_INSERT => S2
     }.
 
 %%
@@ -141,7 +121,7 @@ start_link() ->
 init(_) ->
     self() ! check_status,
     RequestRate = calculate_request_rate(),
-    lager:info("Gateway status starting with update rate: ~p per second", [RequestRate]),
+    lager:info("Validator status starting with update rate: ~p per second", [RequestRate]),
     {ok, #state{
         request_rate = RequestRate,
         requests = ets:new(?SERVER, [ordered_set, public, {write_concurrency, true}])
@@ -171,15 +151,16 @@ handle_info(check_status, State = #state{requests = Requests}) ->
         true ->
             ok;
         false ->
-            lager:info("Gateway status adjusting update rate to: ~p per second", [
+            lager:info("Validator status adjusting update rate to: ~p per second", [
                 RequestRate
             ])
     end,
+
     {ok, _, Results} = ?PREPARED_QUERY(?S_STATUS_UNKNOWN_LIST, [RequestRate]),
 
     %% Ignore already outstanding requests
     FilteredResults = lists:filter(
-        fun ({A}) ->
+        fun({A}) ->
             length(ets:lookup(Requests, A)) == 0
         end,
         Results
@@ -188,7 +169,7 @@ handle_info(check_status, State = #state{requests = Requests}) ->
     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
     Ledger = blockchain:ledger(),
     lists:foreach(
-        fun ({A}) ->
+        fun({A}) ->
             request_status(A, PeerBook, Ledger, Requests)
         end,
         FilteredResults
@@ -202,17 +183,15 @@ handle_info(Info, State) ->
 calculate_request_rate() ->
     %% NOTE:We make time be 10s per minute faster to catch up to the
     %% per second updates.
-    {ok, _, [{GWCount}]} = ?EQUERY("select count(*) from gateway_inventory", []),
-    min(?MAX_REQUEST_RATE, max(1, round(GWCount / (?STATUS_REFRESH_MINS * 50)))).
+    {ok, _, [{Count}]} = ?EQUERY("select count(*) from validator_inventory", []),
+    min(?MAX_REQUEST_RATE, max(1, round(Count / (?STATUS_REFRESH_MINS * 50)))).
 
-request_status(B58Address, PeerBook, Ledger, Requests) ->
-    Request = fun () ->
+request_status(B58Address, PeerBook, _Ledger, Requests) ->
+    Request = fun() ->
         try
             true = ets:insert_new(Requests, {B58Address, self()}),
             Address = ?B58_TO_BIN(B58Address),
             Online = peer_online(Address),
-            PoCInterval = blockchain_utils:challenge_interval(Ledger),
-            LastChallenge = be_peer_status:peer_last_challenge(Address, Ledger),
             Block = be_peer_status:peer_metadata(<<"height">>, Address, PeerBook),
             PeerTime = be_peer_status:peer_time(Address, PeerBook),
             ListenAddrs = be_peer_status:peer_listen_addrs(Address, PeerBook),
@@ -222,8 +201,6 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
                 [
                     B58Address,
                     Online,
-                    PoCInterval,
-                    LastChallenge,
                     Block,
                     PeerTime,
                     ListenAddrs
@@ -231,11 +208,12 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
             )
         catch
             What:Why ->
-                lager:info("Failed to update gateway status for ~p: ~p", [
+                lager:info("Failed to update validator status for ~p: ~p", [
                     B58Address,
                     {What, Why}
                 ])
-        after ets:delete(Requests, B58Address)
+        after
+            ets:delete(Requests, B58Address)
         end
     end,
     spawn_link(Request).
@@ -248,32 +226,16 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
     libp2p_crypto:pubkey_bin(),
     libp2p_peerbook:peerbook(),
     blockchain:ledger()
-) ->
-    binary().
-peer_online(Address, PeerBook, Ledger) ->
-    Ledger = blockchain:ledger(),
-    case peer_recently_added(Address, Ledger) of
-        true ->
-            <<"online">>;
-        false ->
-            case be_peer_status:peer_recent_challenger(Address, Ledger) of
-                true ->
-                    <<"online">>;
-                false ->
-                    case be_peer_status:peer_stale(Address, PeerBook, true) of
-                        true -> <<"offline">>;
-                        false -> <<"online">>
-                    end
-            end
-    end.
-
--spec peer_recently_added(libp2p_crypto:pubkey_bin(), blockchain:ledger()) -> boolean().
-peer_recently_added(Address, Ledger) ->
-    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
-    {ok, _, [{AddedHeight}]} = ?PREPARED_QUERY(?S_PEER_ADDED, [?BIN_TO_B58(Address)]),
-    case Height - AddedHeight of
-        V when V =< ?PEER_RECENTLY_ADDED_BLOCKS ->
-            true;
-        _ ->
-            false
+) -> binary().
+peer_online(Address, _PeerBook, Ledger) ->
+    {ok, HBInterval} = blockchain:config(?validator_liveness_interval, Ledger),
+    {ok, HBGrace} = blockchain:config(?validator_liveness_grace_period, Ledger),
+    {ok, Validator} = blockchain_ledger_v1:get_validator(Address, Ledger),
+    {ok, CurrentHeight} = blockchain_ledger_v1:current_height(Ledger),
+    case
+        (blockchain_ledger_validator_v1:last_heartbeat(Validator) + HBInterval + HBGrace) >=
+            CurrentHeight
+    of
+        true -> <<"online">>;
+        false -> <<"offline">>
     end.

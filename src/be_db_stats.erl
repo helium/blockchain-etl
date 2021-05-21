@@ -80,7 +80,9 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
                 <<"countries">>,
                 <<"cities">>,
                 <<"consensus_groups">>,
-                <<"challenges">>
+                <<"challenges">>,
+                <<"validators">>,
+                <<"ouis">>
             ]
         ),
 
@@ -168,7 +170,22 @@ update(<<"challenges">>, Current, Block) ->
         end,
         blockchain_block:transactions(Block)
     ),
-    Current + length(Txns).
+    Current + length(Txns);
+update(<<"validators">>, _Current, _Block) ->
+    {ok, _, [{Count}]} = ?EQUERY(
+        "select count(*) "
+        "from validator_inventory v inner join validator_status s on v.address = s.address "
+        "where s.online = 'online';",
+        []
+    ),
+    Count;
+update(<<"ouis">>, _Current, _Block) ->
+    {ok, _, [{Count}]} = ?EQUERY(
+        "select count(*) "
+        "from oui_inventory;",
+        []
+    ),
+    Count.
 
 q_insert_stat(Name, Value, Acc) ->
     [{?S_STATS_INSERT, [Name, Value]} | Acc].

@@ -24,8 +24,6 @@ CREATE TABLE block_signatures (
        PRIMARY KEY(block, signer)
 );
 
--- Types are created outside of a transaction. Drop it in case it
--- already exists :-/
 CREATE TYPE transaction_type as ENUM (
         'coinbase_v1',
         'security_coinbase_v1',

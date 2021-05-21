@@ -46,7 +46,6 @@ FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_updated_at();
 
 -- :down
--- Down migration
 
 DROP TABLE pending_transactions;
 DROP TYPE pending_transaction_status, pending_transaction_nonce_type;
