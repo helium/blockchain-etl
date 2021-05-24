@@ -61,7 +61,7 @@ backfill_usage() ->
             "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
             "  backfill location_geometry      - Backfill location postgis geometries.\n"
             "  backfill reward_gateways        - Backfill reward gateways.\n"
-            "  backfill gateways_location_hex  - Backfill location hex in gateway_inventory.\n"
+            "  backfill gateway_location_hex   - Backfill location hex in gateway_inventory.\n"
         ]
     ].
 
