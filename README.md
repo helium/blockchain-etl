@@ -107,9 +107,9 @@ helium/etl
 
 ### Updating Docker
 
-Navigate to your `blockchain-etl` repository.
+Navigate to your copy of the `blockchain-etl` repository.
 
-`cd ~/path/to/blockchain-etl`
+`cd /path/to/blockchain-etl`
 
 Stop the ETL.
 
@@ -119,11 +119,15 @@ Update the repository.
 
 `git pull`
 
+Remove the existing Docker container.
+
+`docker rm etl`
+
 Rebuild the Docker image.
 
 `docker build -t helium/etl .`
 
-Run the Docker container
+Run the updated Docker container.
 
 ```
 docker run -d --init \
@@ -142,7 +146,7 @@ Start the ETL.
 
 `docker exec etl blockchain_etl start`
 
-Log ETL output.
+Log the ETL output.
 
 `tail -f /path/to/etl_data/log/console.log`
 
