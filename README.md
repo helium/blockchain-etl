@@ -105,4 +105,47 @@ docker run -d --init \
 helium/etl
 ```
 
+### Updating Docker
 
+Navigate to your copy of the `blockchain-etl` repository.
+
+`cd /path/to/blockchain-etl`
+
+Stop the ETL.
+
+`docker exec etl blockchain_etl stop`
+
+Update the repository.
+
+`git pull`
+
+Remove the existing Docker container.
+
+`docker rm etl`
+
+Rebuild the Docker image.
+
+`docker build -t helium/etl .`
+
+Run the updated Docker container.
+
+```
+docker run -d --init \
+--publish 2154:2154/tcp \
+--name etl \
+--mount type=bind,source=/path/to/etl_data,target=/var/data \
+-e DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+helium/etl
+```
+
+Run the migrations.
+
+`docker exec etl blockchain_etl migrations run`
+
+Start the ETL.
+
+`docker exec etl blockchain_etl start`
+
+Log the ETL output.
+
+`tail -f /path/to/etl_data/log/console.log`
