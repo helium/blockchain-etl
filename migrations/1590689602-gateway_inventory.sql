@@ -63,7 +63,6 @@ execute procedure gateway_inventory_update();
 
 drop materialized view gateway_ledger;
 
---
 -- :down
 
 create materialized view gateway_ledger as
@@ -72,12 +71,9 @@ create materialized view gateway_ledger as
         inner join gateways g on (g.block, g.address) = (ga.last_block, ga.address)
         left join locations l on g.location = l.location;
 
--- recreate unique index
 create unique index gateway_ledger_gateway_idx on gateway_ledger(address);
--- Add an index that allows ordering the ledger for paging purposes
 create index gateway_ledger_first_block_idx on gateway_ledger(first_block);
 
--- Destroy the new stuff
 drop trigger gateway_insert on gateways;
 drop function gateway_inventory_update;
 drop table gateway_inventory;

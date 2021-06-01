@@ -47,6 +47,7 @@
     be_db_stats,
     be_db_reward,
     be_db_packet,
+    be_db_validator,
     be_db_oui
 ]).
 

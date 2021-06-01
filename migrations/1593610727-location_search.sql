@@ -3,7 +3,6 @@
 
 CREATE EXTENSION pg_trgm;
 
--- fix up the "unknown" abuse
 update locations set long_street = null where long_street = 'unknown';
 update locations set short_street = null where short_street = 'unknown';
 update locations set long_city = null where long_city = 'unknown';
@@ -12,10 +11,7 @@ update locations set long_state = null where long_state = 'unknown';
 update locations set short_state = null where short_state = 'unknown';
 update locations set long_country = null where long_country = 'unknown';
 update locations set short_country = null where short_country = 'unknown';
--- add a search column to contain search words
 alter table locations add column search text;
--- function to return unique search words. Search words are longer than a
--- configured length
 create or replace function location_words(l locations) returns text as $$
 begin
     return (select string_agg(distinct word, ' ')
@@ -38,9 +34,7 @@ begin
 end;
 $$ language plpgsql;
 
--- Update existing entries
 update locations set search = location_words(locations::locations);
--- create the magic index
 create index location_search_idx on locations using GIN(search gin_trgm_ops);
 
 create trigger location_update_search
