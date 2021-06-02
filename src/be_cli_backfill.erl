@@ -25,7 +25,8 @@ register_all_usage() ->
             backfill_oui_subnets_usage(),
             backfill_location_geometry_usage(),
             backfill_reward_gateways_usage(),
-            backfill_gateway_location_hex_usage()
+            backfill_gateway_location_hex_usage(),
+            backfill_dc_burn_usage()
         ]
     ).
 
@@ -42,7 +43,8 @@ register_all_cmds() ->
             backfill_oui_subnets_cmd(),
             backfill_location_geometry_cmd(),
             backfill_reward_gateways_cmd(),
-            backfill_gateway_location_hex_cmd()
+            backfill_gateway_location_hex_cmd(),
+            backfill_dc_burn_cmd()
         ]
     ).
 
@@ -62,6 +64,7 @@ backfill_usage() ->
             "  backfill location_geometry      - Backfill location postgis geometries.\n"
             "  backfill reward_gateways        - Backfill reward gateways.\n"
             "  backfill gateway_location_hex   - Backfill location hex in gateway_inventory.\n"
+            "  backfill dc_burn                - Backfill DC burn table.\n"
         ]
     ].
 
@@ -333,4 +336,48 @@ backfill_gateway_location_hex_usage() ->
 
 backfill_gateway_location_hex(_CmdBase, [], _) ->
     Updated = be_db_backfill:gateway_location_hex(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill dc_burn
+%%
+
+backfill_dc_burn_cmd() ->
+    [
+        [
+            ["backfill", "dc_burn"],
+            [
+                {max, [{longname, "max"}, {datatype, integer}]},
+                {min, [{longname, "min"}, {datatype, integer}]}
+            ],
+            [],
+            fun backfill_dc_burn/3
+        ]
+    ].
+
+backfill_dc_burn_usage() ->
+    [
+        ["backfill", "dc_burn"],
+        [
+            "backfill dc_burn table with burn information between max=<max_block> min=<min_block>\n\n",
+            "  Inserts missing dc_burn entries various burn types.\n\n"
+            "  Run this migration from genesis to block the dc-burn migration happened in.\n\n"
+            "Requires:\n\n"
+            "  <max>\n"
+            "    The maximum block to start search for transactions.\n"
+            "  <min>\n"
+            "    The block to end searches at. \n\n"
+        ]
+    ].
+
+backfill_dc_burn(_CmdBase, [], []) ->
+    usage;
+backfill_dc_burn(_CmdBase, Keys, _) ->
+    MinBlock = proplists:get_value(min, Keys),
+    MaxBlock = proplists:get_value(max, Keys),
+
+    Updated = be_db_backfill:dc_burn(
+        MinBlock,
+        MaxBlock
+    ),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
