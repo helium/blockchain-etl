@@ -57,7 +57,7 @@ collect_burns(Block, OraclePrice, Ledger) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
             lists:foldl(
                 fun({Type, Actor, Amount}, TAcc) ->
-                    [{Height, TxnHash, Actor, Type, Amount, OraclePrice} | TAcc]
+                    [{Height, TxnHash, ?BIN_TO_B58(Actor), Type, Amount, OraclePrice} | TAcc]
                 end,
                 Acc,
                 collect_burns(blockchain_txn:type(T), T, Ledger, [])
@@ -125,7 +125,7 @@ q_insert_burn({BlockHeight, TxnHash, Actor, Type, Amount, OraclePrice}) ->
     Params = [
         BlockHeight,
         TxnHash,
-        ?BIN_TO_B58(Actor),
+        Actor,
         Type,
         Amount,
         OraclePrice
