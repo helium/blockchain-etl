@@ -6,6 +6,8 @@
 -export([prepare_conn/1]).
 %% be_block_handler
 -export([init/1, load_block/6]).
+%% api
+-export([collect_packets/2]).
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
@@ -50,7 +52,12 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
     Queries = lists:foldl(
         fun(T, TAcc) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
-            PacketMap = collect_packets(blockchain_state_channel_v1:summaries(blockchain_txn_state_channel_close_v1:state_channel(T)), #{}),
+            PacketMap = collect_packets(
+                blockchain_state_channel_v1:summaries(
+                    blockchain_txn_state_channel_close_v1:state_channel(T)
+                ),
+                #{}
+            ),
             lists:foldl(
                 fun(Entry, RAcc) ->
                     q_insert_packet(
@@ -81,13 +88,17 @@ collect_packets([], PacketMap) ->
 collect_packets([Summary | Rest], Map) ->
     Key = blockchain_state_channel_summary_v1:client_pubkeybin(Summary),
     {NumPackets, NumDCs} = maps:get(Key, Map, {0, 0}),
-    collect_packets(Rest, 
-        maps:put(Key, 
-                {
-                    NumPackets + blockchain_state_channel_summary_v1:num_packets(Summary), 
-                    NumDCs + blockchain_state_channel_summary_v1:num_dcs(Summary)
-                }, 
-                Map)).
+    collect_packets(
+        Rest,
+        maps:put(
+            Key,
+            {
+                NumPackets + blockchain_state_channel_summary_v1:num_packets(Summary),
+                NumDCs + blockchain_state_channel_summary_v1:num_dcs(Summary)
+            },
+            Map
+        )
+    ).
 
 q_insert_packet(BlockHeight, TxnHash, BlockTime, {Gateway, {NumPackets, NumDCs}}, Queries) ->
     Params = [
