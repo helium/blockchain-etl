@@ -40,7 +40,6 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
-    Block = blockchain_block_v1:height(Block),
     {ok, OraclePrice} = blockchain_ledger_v1:current_oracle_price(Ledger),
     Queries = lists:map(
         fun(Params) ->
@@ -52,12 +51,13 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     {ok, State}.
 
 collect_burns(Block, OraclePrice, Ledger) ->
+    Height = blockchain_block_v1:height(Block),
     lists:foldl(
         fun(T, Acc) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
             lists:foldl(
                 fun({Type, Actor, Amount}, TAcc) ->
-                    [{Block, TxnHash, Actor, Type, Amount, OraclePrice} | TAcc]
+                    [{Height, TxnHash, Actor, Type, Amount, OraclePrice} | TAcc]
                 end,
                 Acc,
                 collect_burns(blockchain_txn:type(T), T, Ledger, [])
