@@ -254,7 +254,7 @@ gateway_location_hex() ->
 %%
 
 -define(INSERT_DC_BURN, [
-    "insert into dc_burn (block, transaction_hash, actor, type, amount, oracle_price) ",
+    "insert into dc_burns (block, transaction_hash, actor, type, amount, oracle_price) ",
     "values ($1, $2, $3, $4, $5, $6) ",
     "on conflict do nothing"
 ]).
