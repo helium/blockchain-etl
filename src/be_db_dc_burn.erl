@@ -25,8 +25,8 @@ prepare_conn(Conn) ->
         Conn,
         ?S_INSERT_BURN,
         [
-            "insert into dc_burns (block, transaction_hash, actor, type, amount, oracle_price) ",
-            "values ($1, $2, $3, $4, $5, $6) "
+            "insert into dc_burns (block, time, transaction_hash, actor, type, amount, oracle_price) ",
+            "values ($1, $2, $3, $4, $5, $6, $7) "
         ],
         []
     ),
