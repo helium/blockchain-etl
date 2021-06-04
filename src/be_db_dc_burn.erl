@@ -42,9 +42,7 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     {ok, OraclePrice} = blockchain_ledger_v1:current_oracle_price(Ledger),
     Queries = lists:map(
-        fun(Params) ->
-            q_insert_burn(Params)
-        end,
+        fun q_insert_burn/1,
         collect_burns(Block, OraclePrice, Ledger)
     ),
     ok = ?BATCH_QUERY(Conn, Queries),
@@ -52,12 +50,16 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
 
 collect_burns(Block, OraclePrice, Ledger) ->
     Height = blockchain_block_v1:height(Block),
+    BlockTime = blockchain_block_v1:time(Block),
     lists:foldl(
         fun(T, Acc) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
             lists:foldl(
                 fun({Type, Actor, Amount}, TAcc) ->
-                    [{Height, TxnHash, ?BIN_TO_B58(Actor), Type, Amount, OraclePrice} | TAcc]
+                    [
+                        {Height, BlockTime, TxnHash, ?BIN_TO_B58(Actor), Type, Amount, OraclePrice}
+                        | TAcc
+                    ]
                 end,
                 Acc,
                 collect_burns(blockchain_txn:type(T), T, Ledger, [])
@@ -121,9 +123,10 @@ collect_fee(Txn, Ledger, Acc) ->
         {Actor, Fee} -> [{fee, Actor, Fee} | Acc]
     end.
 
-q_insert_burn({BlockHeight, TxnHash, Actor, Type, Amount, OraclePrice}) ->
+q_insert_burn({BlockHeight, BlockTime, TxnHash, Actor, Type, Amount, OraclePrice}) ->
     Params = [
         BlockHeight,
+        BlockTime,
         TxnHash,
         Actor,
         Type,

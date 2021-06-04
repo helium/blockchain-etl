@@ -21,7 +21,7 @@ create table dc_burns (
     PRIMARY KEY(actor, transaction_hash, type)
 );
 
-create index dc_burns_block_idx on dc_burns(block);
+create index dc_burns_block_idx on dc_burns using brin(time);
 
 -- :down
 
