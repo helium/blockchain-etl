@@ -17,6 +17,7 @@ create table dc_burns (
     type burn_type NOT NULL,
     amount BIGINT NOT NULL,
     oracle_price BIGINT,
+    time BIGINT,
     
     PRIMARY KEY(actor, transaction_hash, type)
 );
