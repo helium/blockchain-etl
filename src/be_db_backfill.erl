@@ -10,7 +10,9 @@
     oui_subnets/0,
     location_geometry/0,
     reward_gateways/2,
-    gateway_location_hex/0
+    gateway_location_hex/0,
+    dc_burn/2,
+    oracle_price_at/1
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -246,3 +248,59 @@ gateway_location_hex() ->
         NoLocs
     ),
     length(NoLocs).
+
+%%
+%% Backfill dc_burn
+%%
+
+-define(INSERT_DC_BURN, [
+    "insert into dc_burns (block, time, transaction_hash, actor, type, amount, oracle_price) ",
+    "values ($1, $2, $3, $4, $5, $6, $7) ",
+    "on conflict do nothing"
+]).
+
+-define(ORACLE_PRICE_AT, [
+    "select p.block, p.price ",
+    "from oracle_prices p ",
+    "where p.block <= $1 ",
+    "order by p.block desc limit 1"
+]).
+
+oracle_price_at(Height) ->
+    case ?EQUERY(?ORACLE_PRICE_AT, [Height]) of
+        {ok, _, [{_, Price}]} -> Price;
+        {ok, _, []} -> undefined
+    end.
+
+dc_burn(MinBlock, MaxBlock) ->
+    Chain = blockchain_worker:blockchain(),
+    Ledger = blockchain:ledger(Chain),
+
+    erlang:spawn(fun() ->
+        lager:info("backfill starting dc_burns[~p, ~p]", [MinBlock, MaxBlock]),
+        Inserted = lists:sum(
+            blockchain_utils:pmap(
+                fun(Height) ->
+                    {ok, Block} = blockchain:get_block(Height, Chain),
+                    OraclePrice = oracle_price_at(Height),
+                    Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
+                    lists:sum(
+                        blockchain_utils:pmap(
+                            fun(Burn) ->
+                                {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
+                                N
+                            end,
+                            Burns
+                        )
+                    )
+                end,
+                lists:seq(MinBlock, MaxBlock)
+            )
+        ),
+        lager:info("backfill complete: dc_burns[~p, ~p] inserted: ~p", [
+            MinBlock,
+            MaxBlock,
+            Inserted
+        ])
+    end),
+    ok.
