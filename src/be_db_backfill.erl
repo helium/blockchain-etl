@@ -276,21 +276,22 @@ dc_burn(MinBlock, MaxBlock) ->
     Chain = blockchain_worker:blockchain(),
     Ledger = blockchain:ledger(Chain),
 
-    Inserted = lists:foldl(
-        fun(Height, Acc) ->
-            {ok, Block} = blockchain:get_block(Height, Chain),
-            OraclePrice = oracle_price_at(Height),
-            Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
-            lists:foldl(
-                fun(Burn, Acc1) ->
-                    {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
-                    Acc1 + N
-                end,
-                Acc,
-                Burns
-            )
-        end,
-        0,
-        lists:seq(MinBlock, MaxBlock)
+    Inserted = lists:sum(
+        blockcain_utils:pmap(
+            fun(Height) ->
+                {ok, Block} = blockchain:get_block(Height, Chain),
+                OraclePrice = oracle_price_at(Height),
+                Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
+                lists:foldl(
+                    fun(Burn, Acc) ->
+                        {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
+                        Acc + N
+                    end,
+                    0,
+                    Burns
+                )
+            end,
+            lists:seq(MinBlock, MaxBlock)
+        )
     ),
     Inserted.
