@@ -276,6 +276,7 @@ dc_burn(MinBlock, MaxBlock) ->
     Chain = blockchain_worker:blockchain(),
     Ledger = blockchain:ledger(Chain),
 
+    lager:info("backfill starting dc_burns(~p, ~p)", [MinBlock, MaxBlock]),
     Inserted = lists:sum(
         blockchain_utils:pmap(
             fun(Height) ->
@@ -295,4 +296,5 @@ dc_burn(MinBlock, MaxBlock) ->
             lists:seq(MinBlock, MaxBlock)
         )
     ),
+    lager:info("backfill complete: dc_burns(~p, ~p)", [MinBlock, MaxBlock]),
     Inserted.
