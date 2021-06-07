@@ -277,7 +277,7 @@ dc_burn(MinBlock, MaxBlock) ->
     Ledger = blockchain:ledger(Chain),
 
     Inserted = lists:sum(
-        blockcain_utils:pmap(
+        blockchain_utils:pmap(
             fun(Height) ->
                 {ok, Block} = blockchain:get_block(Height, Chain),
                 OraclePrice = oracle_price_at(Height),
