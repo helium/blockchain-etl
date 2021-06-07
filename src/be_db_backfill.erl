@@ -282,13 +282,14 @@ dc_burn(MinBlock, MaxBlock) ->
                 {ok, Block} = blockchain:get_block(Height, Chain),
                 OraclePrice = oracle_price_at(Height),
                 Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
-                lists:foldl(
-                    fun(Burn, Acc) ->
-                        {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
-                        Acc + N
-                    end,
-                    0,
-                    Burns
+                lists:sum(
+                    blockchain_utils:pmap(
+                        fun(Burn) ->
+                            {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
+                            N
+                        end,
+                        Burns
+                    )
                 )
             end,
             lists:seq(MinBlock, MaxBlock)
