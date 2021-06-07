@@ -276,25 +276,31 @@ dc_burn(MinBlock, MaxBlock) ->
     Chain = blockchain_worker:blockchain(),
     Ledger = blockchain:ledger(Chain),
 
-    lager:info("backfill starting dc_burns(~p, ~p)", [MinBlock, MaxBlock]),
-    Inserted = lists:sum(
-        blockchain_utils:pmap(
-            fun(Height) ->
-                {ok, Block} = blockchain:get_block(Height, Chain),
-                OraclePrice = oracle_price_at(Height),
-                Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
-                lists:sum(
-                    blockchain_utils:pmap(
-                        fun(Burn) ->
-                            {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
-                            N
-                        end,
-                        Burns
+    erlang:spawn(fun() ->
+        lager:info("backfill starting dc_burns[~p, ~p]", [MinBlock, MaxBlock]),
+        Inserted = lists:sum(
+            blockchain_utils:pmap(
+                fun(Height) ->
+                    {ok, Block} = blockchain:get_block(Height, Chain),
+                    OraclePrice = oracle_price_at(Height),
+                    Burns = be_db_dc_burn:collect_burns(Block, OraclePrice, Ledger),
+                    lists:sum(
+                        blockchain_utils:pmap(
+                            fun(Burn) ->
+                                {ok, N} = ?EQUERY(?INSERT_DC_BURN, tuple_to_list(Burn)),
+                                N
+                            end,
+                            Burns
+                        )
                     )
-                )
-            end,
-            lists:seq(MinBlock, MaxBlock)
-        )
-    ),
-    lager:info("backfill complete: dc_burns(~p, ~p)", [MinBlock, MaxBlock]),
-    Inserted.
+                end,
+                lists:seq(MinBlock, MaxBlock)
+            )
+        ),
+        lager:info("backfill complete: dc_burns[~p, ~p] inserted: ~p", [
+            MinBlock,
+            MaxBlock,
+            Inserted
+        ])
+    end),
+    ok.

@@ -376,8 +376,8 @@ backfill_dc_burn(_CmdBase, Keys, _) ->
     MinBlock = proplists:get_value(min, Keys),
     MaxBlock = proplists:get_value(max, Keys),
 
-    Updated = be_db_backfill:dc_burn(
+    ok = be_db_backfill:dc_burn(
         MinBlock,
         MaxBlock
     ),
-    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+    [clique_status:text(io_lib:format("backfill started: dc_burn[~p, ~p]", [MinBlock, MaxBlock]))].
