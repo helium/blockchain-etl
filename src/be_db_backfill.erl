@@ -224,14 +224,14 @@ reward_gateways(MinBlock, MaxBlock) ->
     Inserted.
 
 %%
-%% Fill in gateway location_hes if they're null
+%% Fill in gateway location_hex
 %%
 
 gateway_location_hex() ->
     {ok, _, NoLocs} =
         ?EQUERY(
             [
-                "select address, location from gateway_inventory where location is not null and location_hex is null"
+                "select address, location from gateway_inventory where location is not null"
             ],
             []
         ),
