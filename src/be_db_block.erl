@@ -136,8 +136,12 @@ maybe_write_snapshot(_, _, false, _Chain) ->
     ok;
 maybe_write_snapshot(_, <<>>, _, _Chain) ->
     ok;
-maybe_write_snapshot(Height, _SnapshotHash, SnapshotDir, Chain) ->
-    {ok, BinSnap} = blockchain:get_snapshot(Height, Chain),
+maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
+    {ok, BinSnap} =
+        case blockchain:get_snapshot(SnapshotHash, Chain) of
+            {error, not_found} -> blockchain:get_snapshot(Height, Chain);
+            Other -> Other
+        end,
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = file:write_file(Filename, BinSnap).
 
