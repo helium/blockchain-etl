@@ -173,10 +173,7 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
 
 -spec calculate_location_hex(h3:h3index()) -> h3:h3index().
 calculate_location_hex(Location) ->
-    case h3:get_resolution(Location) =< ?H3_LOCATION_RES of
-        true -> Location;
-        false -> h3:parent(Location, ?H3_LOCATION_RES)
-    end.
+    h3:from_geo(h3:to_geo(Location), ?H3_LOCATION_RES).
 
 witnesses_to_json(Witnesses) ->
     maps:fold(
