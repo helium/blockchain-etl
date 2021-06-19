@@ -72,12 +72,14 @@ collect_burns(Block, OraclePrice, Ledger) ->
 %% Collect burn_type, actor and amount data for each
 collect_burns(blockchain_txn_oui_v1, Txn, Ledger, Acc) ->
     collect_fee(Txn, Ledger, [
-        {oui, blockchain_txn_oui_v1:fee_payer(Txn, Ledger), blockchain_txn_oui_v1:staking_fee(Txn)}
+        {oui, blockchain_txn_oui_v1:fee_payer(Txn, Ledger),
+            blockchain_txn_oui_v1:staking_fee(Txn)}
         | Acc
     ]);
 collect_burns(blockchain_txn_routing_v1, Txn, Ledger, Acc) ->
     collect_fee(Txn, Ledger, [
-        {routing, blockchain_txn_routing_v1:owner(Txn), blockchain_txn_routing_v1:staking_fee(Txn)}
+        {routing, blockchain_txn_routing_v1:owner(Txn), 
+            blockchain_txn_routing_v1:staking_fee(Txn)}
         | Acc
     ]);
 collect_burns(blockchain_txn_add_gateway_v1, Txn, Ledger, Acc) ->
@@ -96,6 +98,12 @@ collect_burns(blockchain_txn_assert_location_v2, Txn, Ledger, Acc) ->
     collect_fee(Txn, Ledger, [
         {assert_location, blockchain_txn_assert_location_v2:fee_payer(Txn, Ledger),
             blockchain_txn_assert_location_v2:staking_fee(Txn)}
+        | Acc
+    ]);
+collect_burns(blockchain_txn_create_htlc_v1, Txn, Ledger, Acc) ->
+    collect_fee(Txn, Ledger, [
+        {assert_location, blockchain_txn_create_htlc_v1:fee_payer(Txn, Ledger),
+            blockchain_txn_create_htlc_v1:staking_fee(Txn)}
         | Acc
     ]);
 collect_burns(blockchain_txn_state_channel_close_v1, Txn, Ledger, Acc) ->
