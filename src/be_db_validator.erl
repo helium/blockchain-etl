@@ -115,7 +115,7 @@ q_insert_validator(BlockHeight, Entry, Ledger) ->
         blockchain_ledger_validator_v1:nonce(Entry),
         blockchain_ledger_validator_v1:last_heartbeat(Entry),
         blockchain_ledger_validator_v1:version(Entry),
-        blockchain_ledger_validator_v1:calculate_penalty_value(Entry, Ledger),
+        calculate_penalty_value(Entry, Ledger),
         penalties_to_json(blockchain_ledger_validator_v1:penalties(Entry))
     ],
     {?S_VALIDATOR_INSERT, Params}.
@@ -128,16 +128,27 @@ q_insert_validator(BlockHeight, Entry, Ledger) ->
 
 -spec penalties_to_json([blockchain_ledger_validator_v1:penalty()]) -> [penalty_map()].
 penalties_to_json(Penalties) ->
-    lists:map(
-        fun(Penalty) ->
-            #{
-                type => blockchain_ledger_validator_v1:penalty_type(Penalty),
-                height => blockchain_ledger_validator_v1:penalty_height(Penalty),
-                amount => blockchain_ledger_validator_v1:penalty_amount(Penalty)
-            }
-        end,
-        Penalties
-    ).
+    try
+        lists:map(
+          fun(Penalty) ->
+                  #{
+                    type => blockchain_ledger_validator_v1:penalty_type(Penalty),
+                    height => blockchain_ledger_validator_v1:penalty_height(Penalty),
+                    amount => blockchain_ledger_validator_v1:penalty_amount(Penalty)
+                   }
+          end,
+          Penalties
+         )
+    catch _:_ ->
+            []
+    end.
+
+calculate_penalty_value(Entry, Ledger) ->
+    try
+        blockchain_ledger_validator_v1:calculate_penalty_value(Entry, Ledger)
+    catch _:_ ->
+            0.0
+    end.
 
 incremental_commit_hook(_Changes) ->
     ok.
