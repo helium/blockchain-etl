@@ -115,13 +115,17 @@ Stop the ETL.
 
 `docker exec etl blockchain_etl stop`
 
-Update the repository.
+Stop the Docker container.
 
-`git pull`
+`docker stop etl`
 
 Remove the existing Docker container.
 
 `docker rm etl`
+
+Update the repository.
+
+`git pull`
 
 Rebuild the Docker image.
 
