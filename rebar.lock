@@ -4,7 +4,7 @@
  {<<"base64url">>,{pkg,<<"base64url">>,<<"1.0.1">>},0},
  {<<"blockchain">>,
   {git,"https://github.com/helium/blockchain-core.git",
-       {ref,"1b1f1b4164b84593f316faf74ca09eb017572baf"}},
+       {ref,"a85b0dbfb543f95425a22a0a45705c9ae87afc45"}},
   0},
  {<<"certifi">>,{pkg,<<"certifi">>,<<"2.7.0">>},1},
  {<<"clique">>,
