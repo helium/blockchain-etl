@@ -84,7 +84,10 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
 collect_rewards(blockchain_txn_rewards_v1, _Chain, Txn, RewardMap) ->
     collect_v1_rewards(blockchain_txn_rewards_v1:rewards(Txn), RewardMap);
 collect_rewards(blockchain_txn_rewards_v2, Chain, Txn, RewardMap) ->
-    Start = blockchain_txn_rewards_v2:start_epoch(Txn),
+    Start = case blockchain_txn_rewards_v2:start_epoch(Txn) of
+                910360 -> 910361;
+                St -> St
+            end,
     End = blockchain_txn_rewards_v2:end_epoch(Txn),
     {ok, Ledger} = blockchain:ledger_at(End, Chain),
     {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
