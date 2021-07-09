@@ -13,8 +13,8 @@
     peer_release_version/2
 ]).
 
-%% A peer is considered stale if it's peerbook entry is more than an hour old
--define(STALE_PEER_TIME, 3600000).
+%% A peer is considered stale if it's peerbook entry is more than 24 hours old
+-define(STALE_PEER_TIME, 24 * 3600000).
 
 -spec peer_last_challenge(libp2p_crypto:pubkey_bin(), blockchain_ledger_v1:ledger()) ->
     undefined | pos_integer().

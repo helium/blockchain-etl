@@ -38,8 +38,8 @@
 %% spawned updates.
 -define(MAX_REQUEST_RATE, 200).
 %% A peer is recently added if it's (first) add_gateway transaction is in the
-%% last "24 hours" in blocks (60 blocks per hour assumed)
--define(PEER_RECENTLY_ADDED_BLOCKS, 60 * 24).
+%% last "48 hours" in blocks (60 blocks per hour assumed)
+-define(PEER_RECENTLY_ADDED_BLOCKS, 60 * 48).
 
 %%
 %% Utility API
@@ -179,7 +179,7 @@ handle_info(check_status, State = #state{requests = Requests}) ->
 
     %% Ignore already outstanding requests
     FilteredResults = lists:filter(
-        fun ({A}) ->
+        fun({A}) ->
             length(ets:lookup(Requests, A)) == 0
         end,
         Results
@@ -188,7 +188,7 @@ handle_info(check_status, State = #state{requests = Requests}) ->
     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
     Ledger = blockchain:ledger(),
     lists:foreach(
-        fun ({A}) ->
+        fun({A}) ->
             request_status(A, PeerBook, Ledger, Requests)
         end,
         FilteredResults
@@ -206,7 +206,7 @@ calculate_request_rate() ->
     min(?MAX_REQUEST_RATE, max(1, round(GWCount / (?STATUS_REFRESH_MINS * 50)))).
 
 request_status(B58Address, PeerBook, Ledger, Requests) ->
-    Request = fun () ->
+    Request = fun() ->
         try
             true = ets:insert_new(Requests, {B58Address, self()}),
             Address = ?B58_TO_BIN(B58Address),
@@ -235,7 +235,8 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
                     B58Address,
                     {What, Why}
                 ])
-        after ets:delete(Requests, B58Address)
+        after
+            ets:delete(Requests, B58Address)
         end
     end,
     spawn_link(Request).
