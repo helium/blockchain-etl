@@ -12,7 +12,8 @@
     reward_gateways/2,
     gateway_location_hex/0,
     dc_burn/2,
-    oracle_price_at/1
+    oracle_price_at/1,
+    gateway_payers/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -304,3 +305,27 @@ dc_burn(MinBlock, MaxBlock) ->
         ])
     end),
     ok.
+
+%%
+%% Fill in gateway payers
+%%
+
+gateway_payers() ->
+    {ok, Updated} =
+        ?EQUERY(
+            [
+                "update gateway_inventory set ",
+                "payer = subquery.payer ",
+                "from ( ",
+                "select h.address, t.fields->>'payer' as payer from ("
+                "    select g.address, a.transaction_hash",
+                "    from gateway_inventory g ",
+                "    inner join transaction_actors a on g.address = a.actor and a.actor_role = 'gateway' and a.block = g.first_block ",
+                "    ) h ",
+                "    inner join transactions t on t.hash = h.transaction_hash and t.fields->>'payer' is not null",
+                ") as subquery",
+                "where subquery.address = gateway_inventory.address"
+            ],
+            []
+        ),
+    Updated.

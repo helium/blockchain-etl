@@ -26,7 +26,8 @@ register_all_usage() ->
             backfill_location_geometry_usage(),
             backfill_reward_gateways_usage(),
             backfill_gateway_location_hex_usage(),
-            backfill_dc_burn_usage()
+            backfill_dc_burn_usage(),
+            backfill_gateway_payers_usage()
         ]
     ).
 
@@ -44,7 +45,8 @@ register_all_cmds() ->
             backfill_location_geometry_cmd(),
             backfill_reward_gateways_cmd(),
             backfill_gateway_location_hex_cmd(),
-            backfill_dc_burn_cmd()
+            backfill_dc_burn_cmd(),
+            backfill_gateway_payers_cmd()
         ]
     ).
 
@@ -65,6 +67,7 @@ backfill_usage() ->
             "  backfill reward_gateways        - Backfill reward gateways.\n"
             "  backfill gateway_location_hex   - Backfill location hex in gateway_inventory.\n"
             "  backfill dc_burn                - Backfill DC burn table.\n"
+            "  backfill gateway_payers         - Backfill payers in gateway_inventory.\n"
         ]
     ].
 
@@ -381,3 +384,29 @@ backfill_dc_burn(_CmdBase, Keys, _) ->
         MaxBlock
     ),
     [clique_status:text(io_lib:format("backfill started: dc_burn[~p, ~p]", [MinBlock, MaxBlock]))].
+
+%%
+%% backfill gateway_payers
+%%
+
+backfill_gateway_payers_cmd() ->
+    [
+        [
+            ["backfill", "gateway_payers"],
+            [],
+            [],
+            fun backfill_gateway_payers/3
+        ]
+    ].
+
+backfill_gateway_payers_usage() ->
+    [
+        ["backfill", "gateway_payers"],
+        [
+            "backfill gateway_inventory table with payer information.\n\n"
+        ]
+    ].
+
+backfill_gateway_payers(_CmdBase, [], []) ->
+    Updated = be_db_backfill:gateway_payers(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
