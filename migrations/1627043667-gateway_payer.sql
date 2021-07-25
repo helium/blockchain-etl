@@ -16,6 +16,7 @@ BEGIN
             and a.block = NEW.first_block
     )
     where address = NEW.address;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
