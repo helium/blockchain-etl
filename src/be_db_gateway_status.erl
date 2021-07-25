@@ -103,7 +103,7 @@ prepare_conn(Conn) ->
                 "    poc_interval = EXCLUDED.poc_interval,",
                 "    block = coalesce(EXCLUDED.block, status.block),"
                 "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp),",
-                "    listen_addrs = EXCLUDED.listen_addrs;"
+                "    listen_addrs = coalesce(EXCLUDED.listen_addrs, status.listen_addrs);"
             ],
             []
         ),
