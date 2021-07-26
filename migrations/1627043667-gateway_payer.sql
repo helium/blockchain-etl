@@ -14,6 +14,7 @@ BEGIN
             and a.actor = NEW.address
             and a.actor_role = 'gateway'
             and a.block = NEW.first_block
+        limit 1
     )
     where address = NEW.address;
     RETURN NEW;
