@@ -323,7 +323,7 @@ gateway_payers() ->
                 "    inner join transaction_actors a on g.address = a.actor and a.actor_role = 'gateway' and a.block = g.first_block ",
                 "    ) h ",
                 "    inner join transactions t on t.hash = h.transaction_hash and t.fields->>'payer' is not null",
-                ") as subquery",
+                ") as subquery ",
                 "where subquery.address = gateway_inventory.address"
             ],
             []
