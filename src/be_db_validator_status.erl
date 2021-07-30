@@ -75,7 +75,7 @@ prepare_conn(Conn) ->
                 "    < (now() - '",
                 integer_to_list(?STATUS_REFRESH_MINS),
                 " minute'::interval) ",
-                "order by s.updated_at ",
+                "order by coalesce(updated_at, to_timestamp(0)) ",
                 "limit $1"
             ],
             []
@@ -97,7 +97,7 @@ prepare_conn(Conn) ->
                 "    online = EXCLUDED.online,",
                 "    block = coalesce(EXCLUDED.block, status.block),"
                 "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp),",
-                "    listen_addrs = EXCLUDED.listen_addrs;"
+                "    listen_addrs = coalesce(EXCLUDED.listen_addrs, stsatus.listen_addrs);"
             ],
             []
         ),

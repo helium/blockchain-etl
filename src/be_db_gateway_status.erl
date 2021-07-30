@@ -77,7 +77,7 @@ prepare_conn(Conn) ->
                 "    < (now() - '",
                 integer_to_list(?STATUS_REFRESH_MINS),
                 " minute'::interval) ",
-                "order by s.updated_at ",
+                "order by coalesce(updated_at, to_timestamp(0)) ",
                 "limit $1"
             ],
             []
