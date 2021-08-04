@@ -27,7 +27,8 @@ register_all_usage() ->
             backfill_reward_gateways_usage(),
             backfill_gateway_location_hex_usage(),
             backfill_dc_burn_usage(),
-            backfill_gateway_payers_usage()
+            backfill_gateway_payers_usage(),
+            backfill_consensus_failure_members_usage()
         ]
     ).
 
@@ -46,7 +47,8 @@ register_all_cmds() ->
             backfill_reward_gateways_cmd(),
             backfill_gateway_location_hex_cmd(),
             backfill_dc_burn_cmd(),
-            backfill_gateway_payers_cmd()
+            backfill_gateway_payers_cmd(),
+            backfill_consensus_failure_members_cmd()
         ]
     ).
 
@@ -59,15 +61,16 @@ backfill_usage() ->
         ["backfill"],
         [
             "backfill commands\n\n",
-            "  backfill receipts_challenger    - Backfill the challenger for receipts transactions.\n",
-            "  backfill reversed_receipts_path - Backfill fix reversed poc receipts paths.\n",
-            "  backfill gateway_names          - Backfill names in gateway_inventory.\n"
-            "  backfill oui_subnets            - Backfill OUI inventory subnets.\n"
-            "  backfill location_geometry      - Backfill location postgis geometries.\n"
-            "  backfill reward_gateways        - Backfill reward gateways.\n"
-            "  backfill gateway_location_hex   - Backfill location hex in gateway_inventory.\n"
-            "  backfill dc_burn                - Backfill DC burn table.\n"
-            "  backfill gateway_payers         - Backfill payers in gateway_inventory.\n"
+            "  backfill receipts_challenger       - Backfill the challenger for receipts transactions.\n",
+            "  backfill reversed_receipts_path    - Backfill fix reversed poc receipts paths.\n",
+            "  backfill gateway_names             - Backfill names in gateway_inventory.\n"
+            "  backfill oui_subnets               - Backfill OUI inventory subnets.\n"
+            "  backfill location_geometry         - Backfill location postgis geometries.\n"
+            "  backfill reward_gateways           - Backfill reward gateways.\n"
+            "  backfill gateway_location_hex      - Backfill location hex in gateway_inventory.\n"
+            "  backfill dc_burn                   - Backfill DC burn table.\n"
+            "  backfill gateway_payers            - Backfill payers in gateway_inventory.\n"
+            "  backfill consensus_failure_members - Backfill consensus failure actors.\n"
         ]
     ].
 
@@ -409,4 +412,30 @@ backfill_gateway_payers_usage() ->
 
 backfill_gateway_payers(_CmdBase, [], []) ->
     Updated = be_db_backfill:gateway_payers(),
+    [clique_status:text(io_lib:format("Updated ~p", [Updated]))].
+
+%%
+%% backfill consensus_failure_members
+%%
+
+backfill_consensus_failure_members_cmd() ->
+    [
+        [
+            ["backfill", "consensus_failure_members"],
+            [],
+            [],
+            fun backfill_consensus_failure_members/3
+        ]
+    ].
+
+backfill_consensus_failure_members_usage() ->
+    [
+        ["backfill", "consensus_failure_members"],
+        [
+            "backfill transaction actors table with failed consensus member roles.\n\n"
+        ]
+    ].
+
+backfill_consensus_failure_members(_CmdBase, [], []) ->
+    Updated = be_db_backfill:consensus_failure_members(),
     [clique_status:text(io_lib:format("Updated ~p", [Updated]))].

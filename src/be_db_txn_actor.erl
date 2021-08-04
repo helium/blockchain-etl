@@ -358,11 +358,11 @@ to_actors(blockchain_txn_validator_heartbeat_v1, T) ->
     ];
 to_actors(blockchain_txn_consensus_group_failure_v1, T) ->
     Members = [
-        {"consensus_member", M}
+        {"consensus_failure_member", M}
      || M <- blockchain_txn_consensus_group_failure_v1:members(T)
     ],
     FailedMembers = [
-        {"consensus_member", M}
+        {"consensus_failure_failed_member", M}
      || M <- blockchain_txn_consensus_group_failure_v1:failed_members(T)
     ],
     Members ++ FailedMembers.

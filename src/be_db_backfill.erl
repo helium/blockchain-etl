@@ -13,7 +13,8 @@
     gateway_location_hex/0,
     dc_burn/2,
     oracle_price_at/1,
-    gateway_payers/0
+    gateway_payers/0,
+    consensus_failure_members/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -329,3 +330,38 @@ gateway_payers() ->
             []
         ),
     Updated.
+
+%%
+%% Fix in consensus_group_failure_v1 actors
+%%
+
+consensus_failure_members() ->
+    {ok, Updated} =
+        ?EQUERY(
+            [
+                "update transaction_actors set ",
+                "    actor_role = 'consensus_failure_member'",
+                " from (",
+                "    select hash, fields->'members' as members from transactions where type = 'consensus_group_failure_v1'",
+                " ) as subquery",
+                " where transaction_actors.transaction_hash = subquery.hash and ",
+                "    transaction_actors.actor_role = 'consensus_member' and ",
+                "    subquery.members ? transaction_actors.actor;"
+            ],
+            []
+        ),
+    {ok, UpdatedFailed} =
+        ?EQUERY(
+            [
+                "update transaction_actors set ",
+                "    actor_role = 'consensus_failure_failed_member'",
+                " from (",
+                "    select hash, fields->'failed_members' as failed_members from transactions where type = 'consensus_group_failure_v1'",
+                " ) as subquery",
+                " where transaction_actors.transaction_hash = subquery.hash and ",
+                "    transaction_actors.actor_role = 'consensus_member' and ",
+                "    subquery.failed_members ? transaction_actors.actor;"
+            ],
+            []
+        ),
+    Updated + UpdatedFailed.
