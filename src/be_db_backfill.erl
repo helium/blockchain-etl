@@ -13,7 +13,8 @@
     gateway_location_hex/0,
     dc_burn/2,
     oracle_price_at/1,
-    gateway_payers/0
+    gateway_payers/0,
+    consensus_failure_members/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -329,3 +330,65 @@ gateway_payers() ->
             []
         ),
     Updated.
+
+%%
+%% Fix in consensus_group_failure_v1 actors
+%%
+
+consensus_failure_members() ->
+    {ok, _, Blocks} = ?EQUERY(
+        [
+            "select block from transactions ",
+            "where type = 'consensus_group_failure_v1'"
+        ],
+        []
+    ),
+    Chain = blockchain_worker:blockchain(),
+    Ledger = blockchain:ledger(Chain),
+    lists:foldl(
+        fun({Height}, UpdatedAcc) ->
+            {ok, Block} = blockchain:get_block(Height, Chain),
+            Txns = lists:filter(
+                fun(Txn) ->
+                    blockchain_txn:type(Txn) == blockchain_txn_consensus_group_failure_v1
+                end,
+                blockchain_block_v1:transactions(Block)
+            ),
+            ?WITH_TRANSACTION(fun(Conn) ->
+                lists:foreach(
+                    fun(Txn) ->
+                        %% Update fields for each affected txn
+                        TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),
+                        {ok, _} = ?EQUERY(
+                            [
+                                "update transactions ",
+                                " set fields = $3 ",
+                                "where hash = $1 and block = $2"
+                            ],
+                            [
+                                TxnHash,
+                                Height,
+                                be_txn:to_json(Txn, Ledger, Chain)
+                            ]
+                        ),
+                        %% Remove old actors
+                        ?EQUERY(
+                            [
+                                "delete from transaction_actors ",
+                                "where transaction_hash = $1 and block = $2"
+                            ],
+                            [TxnHash, Height]
+                        ),
+                        %% Re-insert actors
+                        ActorQueries =
+                            be_db_txn_actor:q_insert_transaction_actors(Height, Txn, []),
+                        ok = ?BATCH_QUERY(Conn, ActorQueries)
+                    end,
+                    Txns
+                ),
+                UpdatedAcc + length(Txns)
+            end)
+        end,
+        0,
+        Blocks
+    ).
