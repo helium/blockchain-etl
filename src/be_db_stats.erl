@@ -77,6 +77,7 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
                 <<"blocks">>,
                 <<"transactions">>,
                 <<"hotspots">>,
+                <<"hotspots_dataonly">>,
                 <<"countries">>,
                 <<"cities">>,
                 <<"consensus_groups">>,
@@ -107,6 +108,25 @@ update(<<"hotspots">>, Current, Block) ->
         true ->
             %% We still just go ask the source for the actual value
             {ok, _, [{Count}]} = ?EQUERY("select count(*) from gateway_inventory", []),
+            Count;
+        false ->
+            Current
+    end;
+update(<<"hotspots_dataonly">>, Current, Block) ->
+    case
+        lists:any(
+            fun(Txn) ->
+                blockchain_txn:type(Txn) == blockchain_txn_add_gateway_v1
+            end,
+            blockchain_block:transactions(Block)
+        )
+    of
+        true ->
+            %% We still just go ask the source for the actual value
+            {ok, _, [{Count}]} = ?EQUERY(
+                "select count(*) from gateway_inventory where mode = 'dataonly'",
+                []
+            ),
             Count;
         false ->
             Current
