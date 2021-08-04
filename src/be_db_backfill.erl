@@ -336,32 +336,59 @@ gateway_payers() ->
 %%
 
 consensus_failure_members() ->
-    {ok, Updated} =
-        ?EQUERY(
-            [
-                "update transaction_actors set ",
-                "    actor_role = 'consensus_failure_member'",
-                " from (",
-                "    select hash, fields->'members' as members from transactions where type = 'consensus_group_failure_v1'",
-                " ) as subquery",
-                " where transaction_actors.transaction_hash = subquery.hash and ",
-                "    transaction_actors.actor_role = 'consensus_member' and ",
-                "    subquery.members ? transaction_actors.actor;"
-            ],
-            []
-        ),
-    {ok, UpdatedFailed} =
-        ?EQUERY(
-            [
-                "update transaction_actors set ",
-                "    actor_role = 'consensus_failure_failed_member'",
-                " from (",
-                "    select hash, fields->'failed_members' as failed_members from transactions where type = 'consensus_group_failure_v1'",
-                " ) as subquery",
-                " where transaction_actors.transaction_hash = subquery.hash and ",
-                "    transaction_actors.actor_role = 'consensus_member' and ",
-                "    subquery.failed_members ? transaction_actors.actor;"
-            ],
-            []
-        ),
-    Updated + UpdatedFailed.
+    {ok, _, Blocks} = ?EQUERY(
+        [
+            "select block from transactions ",
+            "where type = 'consensus_group_failure_v1'"
+        ],
+        []
+    ),
+    Chain = blockchain_worker:blockchain(),
+    Ledger = blockchain:ledger(Chain),
+    lists:foldl(
+        fun({Height}, UpdatedAcc) ->
+            {ok, Block} = blockchain:get_block(Height, Chain),
+            Txns = lists:filter(
+                fun(Txn) ->
+                    blockchain_txn:type(Txn) == blockchain_txn_consensus_group_failure_v1
+                end,
+                blockchain_block_v1:transactions(Block)
+            ),
+            ?WITH_TRANSACTION(fun(Conn) ->
+                lists:foreach(
+                    fun(Txn) ->
+                        %% Update fields for each affected txn
+                        TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),
+                        {ok, _} = ?EQUERY(
+                            [
+                                "update transactions ",
+                                " set fields = $3 ",
+                                "where hash = $1 and block = $2"
+                            ],
+                            [
+                                TxnHash,
+                                Height,
+                                be_txn:to_json(Txn, Ledger, Chain)
+                            ]
+                        ),
+                        %% Remove old actors
+                        ?EQUERY(
+                            [
+                                "delete from transaction_actors ",
+                                "where transaction_hash = $1 and block = $2"
+                            ],
+                            [TxnHash, Height]
+                        ),
+                        %% Re-insert actors
+                        ActorQueries =
+                            be_db_txn_actor:q_insert_transaction_actors(Height, Txn, []),
+                        ok = ?BATCH_QUERY(Conn, ActorQueries)
+                    end,
+                    Txns
+                ),
+                UpdatedAcc + length(Txns)
+            end)
+        end,
+        0,
+        Blocks
+    ).
