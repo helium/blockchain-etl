@@ -88,23 +88,26 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Merge in any gateways that are indirectly updated by the ledger and stashed
     %% in the module ets table
     StartUnhandled = erlang:monotonic_time(millisecond),
-    IndirectGateways = maps:without(
-        maps:keys(BlockGateways),
+    Gateways =
         dets:foldl(
             fun
                 ({Key}, Acc) ->
-                    maps:put(Key, true, Acc);
+                    case maps:is_key(Key, Acc) of
+                        true ->
+                            Acc;
+                        false ->
+                            lager:info("processing unhandled gateway ~p", [?BIN_TO_B58(Key)]),
+                            maps:put(Key, true, Acc)
+                    end;
                 (_, Acc) ->
                     Acc
             end,
-            #{},
+            BlockGateways,
             ?MODULE
-        )
-    ),
+        ),
     be_db_follower:maybe_log_duration(db_gateway_unhandled_fold, StartUnhandled),
 
     StartMkQuery = erlang:monotonic_time(millisecond),
-    Gateways = maps:merge(BlockGateways, IndirectGateways),
     BlockHeight = blockchain_block_v1:height(Block),
     BlockTime = blockchain_block_v1:time(Block),
     ChangeType =
