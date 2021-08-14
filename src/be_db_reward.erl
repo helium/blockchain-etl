@@ -89,11 +89,14 @@ calculate_rewards_metadata(Start, End, Chain) ->
     % rewards metadata.
     case ets:take(?MODULE, metadata) of
         [] ->
+            Start = erlang:monotonic_time(millisecond),
             {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
                 Start,
                 End,
                 Chain
             ),
+            End = erlang:monotonic_time(millisecond),
+            lager:info("Calculated rewards metadata took: ~p ms", [End - Start]),
             ets:insert(?MODULE, {metadata, Metadata}),
             {ok, Metadata};
         [{metadata, Metadata}] ->
