@@ -34,7 +34,8 @@
     maybe_fn/2,
     maybe_b64/1,
     maybe_b58/1,
-    maybe_h3/1
+    maybe_h3/1,
+    random_val_predicate/1
 ]).
 
 -define(HANDLER_MODULES, [
@@ -148,3 +149,7 @@ maybe_b58(V) ->
 -spec maybe_h3(undefined | h3:h3index()) -> undefined | binary().
 maybe_h3(V) ->
     maybe_fn(fun(I) -> list_to_binary(h3:to_string(I)) end, V).
+
+random_val_predicate(Peer) ->
+    not libp2p_peer:is_stale(Peer, timer:minutes(360)) andalso
+        maps:get(<<"release_version">>, libp2p_peer:signed_metadata(Peer), undefined) /= undefined.
