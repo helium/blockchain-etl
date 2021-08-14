@@ -80,7 +80,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         #{},
         Ledger
     ),
-    be_db_follower:maybe_log_duration(accound_staked_make, StartStaked),
+    be_db_follower:maybe_log_duration(db_account_staked_make, StartStaked),
 
     UpdateAccount = fun(Account) ->
         lists:foldl(
@@ -111,7 +111,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         #{},
         Block
     ),
-    be_db_follower:maybe_log_duration(accound_actor_fold, StartActor),
+    be_db_follower:maybe_log_duration(db_account_actor_fold, StartActor),
 
     %% Merge in any accounts that are indirectly updated by the ledger and stashed
     %% in the module ets table
@@ -132,7 +132,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         BlockAccounts,
         ?MODULE
     ),
-    be_db_follower:maybe_log_duration(accound_unhandled_fold, StartUnhandled),
+    be_db_follower:maybe_log_duration(db_account_unhandled_fold, StartUnhandled),
 
     StartMkQuery = erlang:monotonic_time(millisecond),
     BlockHeight = blockchain_block_v1:height(Block),
@@ -143,11 +143,11 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Accounts
     ),
-    be_db_follower:maybe_log_duration(accound_query_make, StartMkQuery),
+    be_db_follower:maybe_log_duration(db_account_query_make, StartMkQuery),
 
     StartQuery = erlang:monotonic_time(millisecond),
     ok = ?BATCH_QUERY(Conn, Queries),
-    be_db_follower:maybe_log_duration(accound_query_exec, StartQuery),
+    be_db_follower:maybe_log_duration(db_account_query_exec, StartQuery),
 
     ets:delete_all_objects(?MODULE),
     {ok, State}.
