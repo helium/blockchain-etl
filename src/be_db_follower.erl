@@ -35,7 +35,8 @@
     maybe_b64/1,
     maybe_b58/1,
     maybe_h3/1,
-    random_val_predicate/1
+    random_val_predicate/1,
+    maybe_log_duration/2
 ]).
 
 -define(HANDLER_MODULES, [

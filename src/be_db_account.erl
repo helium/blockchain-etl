@@ -81,6 +81,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     end,
     %% Construct the list of accounts that have changed in this block based on
     %% transaction actors
+    StartActor = erlang:monotonic_time(millisecond),
     BlockAccounts = be_db_follower:fold_actors(
         ["payer", "payee"],
         fun({_Role, Key}, Acc) ->
@@ -90,8 +91,11 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         #{},
         Block
     ),
+    be_db_follower:maybe_log_duration(accound_actor_fold, StartActor),
+
     %% Merge in any accounts that are indirectly updated by the ledger and stashed
     %% in the module ets table
+    StartUnhandled = erlang:monotonic_time(millisecond),
     Accounts = ets:foldl(
         fun
             ({Key}, Acc) ->
@@ -108,7 +112,9 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         BlockAccounts,
         ?MODULE
     ),
+    be_db_follower:maybe_log_duration(accound_unhandled_fold, StartUnhandled),
 
+    StartMkQuery = erlang:monotonic_time(millisecond),
     BlockHeight = blockchain_block_v1:height(Block),
     Queries = maps:fold(
         fun(_Key, Account, Acc) ->
@@ -117,7 +123,12 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Accounts
     ),
+    be_db_follower:maybe_log_duration(accound_query_make, StartMkQuery),
+
+    StartQuery = erlang:monotonic_time(millisecond),
     ok = ?BATCH_QUERY(Conn, Queries),
+    be_db_follower:maybe_log_duration(accound_query_exec, StartQuery),
+
     ets:delete_all_objects(?MODULE),
     {ok, State}.
 
