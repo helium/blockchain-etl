@@ -35,7 +35,8 @@
     maybe_b64/1,
     maybe_b58/1,
     maybe_h3/1,
-    random_val_predicate/1
+    random_val_predicate/1,
+    maybe_log_duration/2
 ]).
 
 -define(HANDLER_MODULES, [
@@ -87,8 +88,10 @@ load_block(Hash, Block, Sync, Ledger, State = #state{}) ->
         States =
             lists:foldl(
                 fun({Handler, HandlerState}, HandlerStates) ->
+                    Start = erlang:monotonic_time(millisecond),
                     {ok, NewHandlerState} =
                         Handler:load_block(Conn, Hash, Block, Sync, Ledger, HandlerState),
+                    maybe_log_duration(Handler, Start),
                     [{Handler, NewHandlerState} | HandlerStates]
                 end,
                 [],
@@ -97,8 +100,11 @@ load_block(Hash, Block, Sync, Ledger, State = #state{}) ->
         {ok, lists:reverse(States)}
     end,
 
+    Start = erlang:monotonic_time(millisecond),
     lager:info("Storing block: ~p", [blockchain_block_v1:height(Block)]),
     {ok, HandlerStates} = ?WITH_TRANSACTION(LoadFun),
+    End = erlang:monotonic_time(millisecond),
+    lager:info("Stored block: ~p took: ~p ms", [blockchain_block_v1:height(Block), End - Start]),
     {ok, #state{handler_state = HandlerStates}}.
 
 terminate(_Reason, _State) ->
@@ -107,6 +113,15 @@ terminate(_Reason, _State) ->
 %%
 %% Utilities
 %%
+
+maybe_log_duration(Item, Start) ->
+    case application:get_env(blockchain_etl, log_handler_duration, true) of
+        true ->
+            End = erlang:monotonic_time(millisecond),
+            lager:info("~p took ~p ms", [Item, End - Start]);
+        _ ->
+            ok
+    end.
 
 fold_actors(Roles, Fun, InitAcc, Block) ->
     Txns = blockchain_block_v1:transactions(Block),

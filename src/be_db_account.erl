@@ -65,22 +65,43 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
+    StartStaked = erlang:monotonic_time(millisecond),
+    Staked = blockchain_ledger_v1:fold_validators(
+        fun(Val, Acc) ->
+            Address = blockchain_ledger_validator_v1:owner_address(Val),
+            Amount = blockchain_ledger_validator_v1:stake(Val),
+            maps:update_with(
+                Address,
+                fun(Balance) -> Balance + Amount end,
+                Amount,
+                Acc
+            )
+        end,
+        #{},
+        Ledger
+    ),
+    be_db_follower:maybe_log_duration(db_account_staked_make, StartStaked),
+
     UpdateAccount = fun(Account) ->
         lists:foldl(
-            fun(UpdateFun, Acc) ->
-                UpdateFun(Acc, Ledger)
+            fun
+                ({UpdateFun, Args}, Acc) ->
+                    UpdateFun(Acc, Args, Ledger);
+                (UpdateFun, Acc) ->
+                    UpdateFun(Acc, Ledger)
             end,
             Account,
             [
                 fun update_securities/2,
                 fun update_data_credits/2,
                 fun update_balance/2,
-                fun update_staked_balance/2
+                {fun update_staked_balance/3, Staked}
             ]
         )
     end,
     %% Construct the list of accounts that have changed in this block based on
     %% transaction actors
+    StartActor = erlang:monotonic_time(millisecond),
     BlockAccounts = be_db_follower:fold_actors(
         ["payer", "payee"],
         fun({_Role, Key}, Acc) ->
@@ -90,8 +111,11 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         #{},
         Block
     ),
+    be_db_follower:maybe_log_duration(db_account_actor_fold, StartActor),
+
     %% Merge in any accounts that are indirectly updated by the ledger and stashed
     %% in the module ets table
+    StartUnhandled = erlang:monotonic_time(millisecond),
     Accounts = ets:foldl(
         fun
             ({Key}, Acc) ->
@@ -108,7 +132,9 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         BlockAccounts,
         ?MODULE
     ),
+    be_db_follower:maybe_log_duration(db_account_unhandled_fold, StartUnhandled),
 
+    StartMkQuery = erlang:monotonic_time(millisecond),
     BlockHeight = blockchain_block_v1:height(Block),
     Queries = maps:fold(
         fun(_Key, Account, Acc) ->
@@ -117,7 +143,12 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Accounts
     ),
+    be_db_follower:maybe_log_duration(db_account_query_make, StartMkQuery),
+
+    StartQuery = erlang:monotonic_time(millisecond),
     ok = ?BATCH_QUERY(Conn, Queries),
+    be_db_follower:maybe_log_duration(db_account_query_exec, StartQuery),
+
     ets:delete_all_objects(?MODULE),
     {ok, State}.
 
@@ -173,20 +204,9 @@ update_balance(Account, Ledger) ->
             Account
     end.
 
-update_staked_balance(Account, Ledger) ->
+update_staked_balance(Account, StakedAccounts, _Ledger) ->
     Address = Account#account.address,
-    Staked = blockchain_ledger_v1:fold_validators(
-        fun(Val, Acc) ->
-            case blockchain_ledger_validator_v1:owner_address(Val) of
-                Address ->
-                    Acc + blockchain_ledger_validator_v1:stake(Val);
-                _ ->
-                    Acc
-            end
-        end,
-        0,
-        Ledger
-    ),
+    Staked = maps:get(Address, StakedAccounts, 0),
     Account#account{
         staked_balance = Staked
     }.

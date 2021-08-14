@@ -220,7 +220,7 @@ to_actors(blockchain_txn_rewards_v2, T) ->
     %% ledger to construct it actors
     Chain = blockchain_worker:blockchain(),
     {ok, Ledger} = blockchain:ledger_at(End, Chain),
-    {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
+    {ok, Metadata} = be_db_reward:calculate_rewards_metadata(
         Start,
         End,
         Chain
