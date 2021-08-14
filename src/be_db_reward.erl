@@ -85,10 +85,14 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
 }.
 
 calculate_rewards_metadata(Start, End, Chain) ->
-    % This makes the terrible assumption that there are only two users of
-    % rewards metadata.
-    case ets:take(?MODULE, metadata) of
-        [] ->
+    % Check if someone else already constructed the metadata for the given start
+    % block.
+    case ets:lookup(?MODULE, metadata) of
+        [{metadata, Start, Metadata}] ->
+            {ok, Metadata};
+        _ ->
+            % Otherwise delete the cache entry and construct a new one
+            ets:delete(?MODULE, metadata),
             StartTime = erlang:monotonic_time(millisecond),
             {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
                 Start,
@@ -97,9 +101,7 @@ calculate_rewards_metadata(Start, End, Chain) ->
             ),
             EndTime = erlang:monotonic_time(millisecond),
             lager:info("Calculated rewards metadata took: ~p ms", [EndTime - StartTime]),
-            ets:insert(?MODULE, {metadata, Metadata}),
-            {ok, Metadata};
-        [{metadata, Metadata}] ->
+            ets:insert(?MODULE, {metadata, Start, Metadata}),
             {ok, Metadata}
     end.
 
