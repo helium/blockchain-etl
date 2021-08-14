@@ -64,6 +64,8 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Construct the list of gateways that have changed in this block based on
     %% transaction actors
+
+    StartActor = erlang:monotonic_time(millisecond),
     BlockGateways = be_db_follower:fold_actors(
         [
             "gateway",
@@ -76,29 +78,33 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             "consensus_member"
         ],
         fun({_Role, Key}, Acc) ->
-            sets:add_element(Key, Acc)
+            maps:put(Key, true, Acc)
         end,
-        sets:new(),
+        #{},
         Block
     ),
+    be_db_follower:maybe_log_duration(db_gateway_actor_fold, StartActor),
+
     %% Merge in any gateways that are indirectly updated by the ledger and stashed
     %% in the module ets table
-    {Gateways, IndirectCount} = dets:foldl(
-        fun
-            ({Key}, Acc = {GWAcc, CountAcc}) ->
-                case sets:is_element(Key, GWAcc) of
-                    true ->
-                        Acc;
-                    false ->
-                        {sets:add_element(Key, GWAcc), CountAcc + 1}
-                end;
-            (_, Acc) ->
-                Acc
-        end,
-        {BlockGateways, 0},
-        ?MODULE
+    StartUnhandled = erlang:monotonic_time(millisecond),
+    IndirectGateways = maps:without(
+        maps:keys(BlockGateways),
+        dets:foldl(
+            fun
+                ({Key}, Acc) ->
+                    maps:put(Key, true, Acc);
+                (_, Acc) ->
+                    Acc
+            end,
+            #{},
+            ?MODULE
+        )
     ),
-    lager:info("processed indirect gatways: ~p", [IndirectCount]),
+    be_db_follower:maybe_log_duration(db_gateway_unhandled_fold, StartUnhandled),
+
+    StartMkQuery = erlang:monotonic_time(millisecond),
+    Gateways = maps:merge(BlockGateways, IndirectGateways),
     BlockHeight = blockchain_block_v1:height(Block),
     BlockTime = blockchain_block_v1:time(Block),
     ChangeType =
@@ -106,8 +112,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             true -> election;
             false -> block
         end,
-    Queries = sets:fold(
-        fun(Key, Acc) ->
+    Queries = maps:fold(
+        fun(Key, _Value, Acc) ->
             case blockchain_ledger_v1:find_gateway_info(Key, Ledger) of
                 {ok, GW} ->
                     Query =
@@ -127,7 +133,12 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Gateways
     ),
+    be_db_follower:maybe_log_duration(db_account_query_make, StartMkQuery),
+
+    StartQuery = erlang:monotonic_time(millisecond),
     ok = ?BATCH_QUERY(Conn, Queries),
+    be_db_follower:maybe_log_duration(db_account_query_exec, StartQuery),
+
     dets:delete_all_objects(?MODULE),
     {ok, State}.
 
