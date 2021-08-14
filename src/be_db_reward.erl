@@ -6,6 +6,8 @@
 -export([prepare_conn/1]).
 %% be_block_handler
 -export([init/1, load_block/6]).
+%% api
+-export([calculate_rewards_metadata/3]).
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
@@ -35,6 +37,7 @@ prepare_conn(Conn) ->
 %%
 
 init(_) ->
+    ets:new(?MODULE, [public, named_table]),
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
@@ -81,13 +84,29 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
         Reward :: pos_integer()
 }.
 
+calculate_rewards_metadata(Start, End, Chain) ->
+    % This makes the terrible assumption that there are only two users of
+    % rewards metadata.
+    case ets:take(?MODULE, metadata) of
+        [] ->
+            {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
+                Start,
+                End,
+                Chain
+            ),
+            ets:insert(?MODULE, {metadata, Metadata}),
+            {ok, Metadata};
+        [{metadata, Metadata}] ->
+            {ok, Metadata}
+    end.
+
 collect_rewards(blockchain_txn_rewards_v1, _Chain, Txn, RewardMap) ->
     collect_v1_rewards(blockchain_txn_rewards_v1:rewards(Txn), RewardMap);
 collect_rewards(blockchain_txn_rewards_v2, Chain, Txn, RewardMap) ->
     Start = blockchain_txn_rewards_v2:start_epoch(Txn),
     End = blockchain_txn_rewards_v2:end_epoch(Txn),
     {ok, Ledger} = blockchain:ledger_at(End, Chain),
-    {ok, Metadata} = blockchain_txn_rewards_v2:calculate_rewards_metadata(
+    {ok, Metadata} = ?MODULE:calculate_rewards_metadata(
         Start,
         End,
         Chain
