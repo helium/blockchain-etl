@@ -65,17 +65,37 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
+    StartStaked = erlang:monotonic_time(millisecond),
+    Staked = blockchain_ledger_v1:fold_validators(
+        fun(Val, Acc) ->
+            Address = blockchain_ledger_validator_v1:owner_address(Val),
+            Amount = blockchain_ledger_validator_v1:stake(Val),
+            maps:update_with(
+                Address,
+                fun(Balance) -> Balance + Amount end,
+                Amount,
+                Acc
+            )
+        end,
+        #{},
+        Ledger
+    ),
+    be_db_follower:maybe_log_duration(accound_staked_make, StartStaked),
+
     UpdateAccount = fun(Account) ->
         lists:foldl(
-            fun(UpdateFun, Acc) ->
-                UpdateFun(Acc, Ledger)
+            fun
+                ({UpdateFun, Args}, Acc) ->
+                    UpdateFun(Acc, Args, Ledger);
+                (UpdateFun, Acc) ->
+                    UpdateFun(Acc, Ledger)
             end,
             Account,
             [
                 fun update_securities/2,
                 fun update_data_credits/2,
                 fun update_balance/2,
-                fun update_staked_balance/2
+                {fun update_staked_balance/3, Staked}
             ]
         )
     end,
@@ -184,20 +204,9 @@ update_balance(Account, Ledger) ->
             Account
     end.
 
-update_staked_balance(Account, Ledger) ->
+update_staked_balance(Account, StakedAccounts, _Ledger) ->
     Address = Account#account.address,
-    Staked = blockchain_ledger_v1:fold_validators(
-        fun(Val, Acc) ->
-            case blockchain_ledger_validator_v1:owner_address(Val) of
-                Address ->
-                    Acc + blockchain_ledger_validator_v1:stake(Val);
-                _ ->
-                    Acc
-            end
-        end,
-        0,
-        Ledger
-    ),
+    Staked = maps:get(Address, StakedAccounts, 0),
     Account#account{
         staked_balance = Staked
     }.
