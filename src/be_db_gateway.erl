@@ -136,11 +136,11 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Gateways
     ),
-    be_db_follower:maybe_log_duration(db_account_query_make, StartMkQuery),
+    be_db_follower:maybe_log_duration(db_gateway_query_make, StartMkQuery),
 
     StartQuery = erlang:monotonic_time(millisecond),
     ok = ?BATCH_QUERY(Conn, Queries),
-    be_db_follower:maybe_log_duration(db_account_query_exec, StartQuery),
+    be_db_follower:maybe_log_duration(db_gateway_query_exec, StartQuery),
 
     dets:delete_all_objects(?MODULE),
     {ok, State}.
