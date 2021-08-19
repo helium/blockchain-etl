@@ -199,7 +199,7 @@ location_geometry() ->
                 )
             catch
                 What:Why:Where ->
-                    lager:info("Ignoring invalid lodation: ~p: ~p", [
+                    lager:info("Ignoring invalid location: ~p: ~p", [
                         Location,
                         {What, Why, Where}
                     ])
