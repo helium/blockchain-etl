@@ -190,12 +190,15 @@ oui_subnets() ->
 location_geometry() ->
     {ok, _, Locations} = ?EQUERY("select location from locations", []),
     lists:foreach(
-        fun({Location}) ->
-            {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
-            {ok, _} = ?EQUERY(
-                "update locations set geometry = ST_SetSRID(ST_MakePoint($2, $3), 4326) where location = $1",
-                [Location, Lon, Lat]
-            )
+        fun
+            ({Location}) when is_binary(Location) ->
+                {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
+                {ok, _} = ?EQUERY(
+                    "update locations set geometry = ST_SetSRID(ST_MakePoint($2, $3), 4326) where location = $1",
+                    [Location, Lon, Lat]
+                );
+            ({Location}) ->
+                lager:info("Ignoring invalid lodation: ~p", [Location])
         end,
         Locations
     ),
