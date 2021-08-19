@@ -196,7 +196,7 @@ handle_info({pending_result, Key, ok}, State) ->
     {ok, _} = ?PREPARED_QUERY(?S_PENDING_TXN_SET_CLEARED, [Key]),
     {noreply, State};
 handle_info({pending_result, Key, {error, duplicate_key}}, State) ->
-    lager:error("Duplicate submission reorted for: ~p", [Key]),
+    lager:error("Duplicate submission reported for: ~p", [Key]),
     {noreply, State};
 handle_info({pending_result, Key, {error, Error}}, State) ->
     ErrorStr = lists:flatten(io_lib:format("~p", [Error])),
