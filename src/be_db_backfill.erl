@@ -95,6 +95,7 @@ reversed_receipts_path(MinBlock, MaxBlock, Fun) ->
             Path
         )
     end,
+    JsonOpts = [{ledger, Ledger}, {chain, Chain}],
     lists:foldl(
         fun(Height, Acc) ->
             BlockTxns = ReceiptsTxnsForBlock(Height),
@@ -108,7 +109,7 @@ reversed_receipts_path(MinBlock, MaxBlock, Fun) ->
                     case lists:reverse(StoredPath) == ValidPath of
                         true ->
                             %% Reversed path, re-store json for transaction
-                            Fields = be_txn:to_json(BlockTxn, Ledger, Chain),
+                            Fields = be_txn:to_json(BlockTxn, JsonOpts),
                             {ok, 1} =
                                 ?EQUERY(?UPDATE_RECEIPTS_TXN, [Height, TxnHashStr, Fields]),
                             BlockAcc + 1;
@@ -353,6 +354,7 @@ consensus_failure_members() ->
     ),
     Chain = blockchain_worker:blockchain(),
     Ledger = blockchain:ledger(Chain),
+    JsonOpts = [{ledger, Ledger}, {chain, Chain}],
     lists:foldl(
         fun({Height}, UpdatedAcc) ->
             {ok, Block} = blockchain:get_block(Height, Chain),
@@ -376,7 +378,7 @@ consensus_failure_members() ->
                             [
                                 TxnHash,
                                 Height,
-                                be_txn:to_json(Txn, Ledger, Chain)
+                                be_txn:to_json(Txn, JsonOpts)
                             ]
                         ),
                         %% Remove old actors
