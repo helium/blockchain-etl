@@ -195,9 +195,10 @@ q_insert_transactions(Block, Queries, Ledger, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
+    JsonOpts = [{ledger, Ledger}, {chain, blockchain_worker:blockchain()}],
     lists:foldl(
         fun(T, Acc) ->
-            Json = #{type := Type} = be_txn:to_json(T, Ledger, blockchain_worker:blockchain()),
+            Json = #{type := Type} = be_txn:to_json(T, JsonOpts),
             [
                 {?S_INSERT_TXN, [
                     Height,
