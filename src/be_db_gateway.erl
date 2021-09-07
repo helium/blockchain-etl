@@ -5,7 +5,7 @@
 
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_block/6]).
 %% hooks
 -export([incremental_commit_hook/1, end_commit_hook/2]).
 %% api
@@ -60,6 +60,46 @@ init(_) ->
     BaseDir = application:get_env(blockchain, base_dir, "data"),
     dets:open_file(?MODULE, [{file, filename:join(BaseDir, ?MODULE)}]),
     {ok, #state{}}.
+
+
+snap_loaded(Conn, Chain, State) ->
+    Ledger = blockchain:ledger(Chain),
+    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
+    {ok, HeadBlock} = blockchain:get_block(Height, Chain),
+    BlockTime = blockchain_block:time(HeadBlock),
+    Gateways = blockchain_ledger_v1:active_gateways(Ledger),
+    StartMkQuery = erlang:monotonic_time(millisecond),
+    Queries = maps:fold(
+        fun(Key, _Value, Acc) ->
+            case blockchain_ledger_v1:find_gateway_info(Key, Ledger) of
+                {ok, GW} ->
+                    Query =
+                        q_insert_gateway(
+                            Height,
+                            BlockTime,
+                            Key,
+                            GW,
+                            snapshot,
+                            Ledger
+                        ),
+                    [Query | Acc];
+                {error, _} ->
+                    Acc
+            end
+        end,
+        [],
+        Gateways
+    ),
+
+    be_db_follower:maybe_log_duration(db_gateway_query_make, StartMkQuery),
+
+    StartQuery = erlang:monotonic_time(millisecond),
+    ok = ?BATCH_QUERY(Conn, Queries),
+    be_db_follower:maybe_log_duration(db_gateway_query_exec, StartQuery),
+
+    lager:info("inserted ~p gateways", [maps:size(Gateways)]),
+    {ok, State}.
+
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Construct the list of gateways that have changed in this block based on
@@ -154,6 +194,8 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
         case ChangeType of
             block ->
                 undefined;
+            snapshot ->
+                undefined;
             election ->
                 ?MAYBE_FN(
                     fun(L) ->
@@ -167,13 +209,20 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
                     Location
                 )
         end,
+    LastChallenge = case ChangeType of
+                        snapshot ->
+                            %% TODO check if the block is one we have in the snap?
+                            ?MAYBE_UNDEFINED(undefined);
+                        _ ->
+                            ?MAYBE_UNDEFINED(blockchain_ledger_gateway_v2:last_poc_challenge(GW))
+                    end,
     Params = [
         BlockHeight,
         BlockTime,
         B58Address,
         ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(GW)),
         ?MAYBE_H3(Location),
-        ?MAYBE_UNDEFINED(blockchain_ledger_gateway_v2:last_poc_challenge(GW)),
+        LastChallenge,
         ?MAYBE_B64(blockchain_ledger_gateway_v2:last_poc_onion_key_hash(GW)),
         witnesses_to_json(blockchain_ledger_gateway_v2:witnesses(GW)),
         blockchain_ledger_gateway_v2:nonce(GW),

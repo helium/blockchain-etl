@@ -10,7 +10,7 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_block/6]).
 %% api
 -export([block_height/1, maybe_write_snapshot/2]).
 
@@ -91,6 +91,42 @@ init(_) ->
         height = Height
     }}.
 
+snap_loaded(Conn, Chain, State) ->
+    Ledger = blockchain:ledger(Chain),
+    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
+    {ok, HeadBlock} = blockchain:get_block(Height, Chain),
+    {ok, Genesis} = blockchain:genesis_block(Chain),
+    Blocks = blockchain:fold_chain(fun(Block, Acc) ->
+                                  [Block|Acc]
+                          end, [], HeadBlock, Chain),
+    lager:info("loading ~p blocks", [length(Blocks)]),
+    Heights = lists:map(fun(Block) ->
+                          Hash = blockchain_block:hash_block(Block),
+                          BHeight = blockchain_block:height(Block),
+                          lager:info("loading block ~p", [blockchain_block:height(Block)]),
+                          BlockQueries = q_insert_block(Hash, Block, Ledger, undefined, [], State),
+                          ok = ?BATCH_QUERY(Conn, BlockQueries),
+                          BHeight
+                  end, [Genesis|Blocks]),
+    stub_missing_blocks(Conn, 2, Heights, Ledger, State),
+    lager:info("setting block height to ~p", [Height]),
+    {ok, State#state{height=Height}}.
+
+stub_missing_blocks(Conn, Height, Heights, Ledger, State) ->
+    case lists:member(Height, Heights) of
+        true -> ok;
+        false ->
+            Block = blockchain_block_v1:new(#{prev_hash => <<>>, height => Height, time => 0,
+                                      hbbft_round => 0, transactions => [], signatures => [],
+                                      election_epoch => 0, epoch_start => 0, seen_votes => [],
+                                      bba_completion => <<>>}),
+            Hash = blockchain_block:hash_block(Block),
+            lager:info("stubbing block ~p", [blockchain_block:height(Block)]),
+            BlockQueries = q_insert_block(Hash, Block, Ledger, undefined, [], State),
+            ok = ?BATCH_QUERY(Conn, BlockQueries),
+            stub_missing_blocks(Conn, Height +1, Heights, Ledger, State)
+    end.
+
 load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     ?assertEqual(
@@ -149,7 +185,10 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
     ok = file:write_file(Filename, BinSnap),
     ok = file:write_file(Latest, LatestBin).
 
-q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
+q_insert_block(Hash, Block, Ledger, Queries, State) ->
+    q_insert_block(Hash, Block, Ledger, blockchain_worker:blockchain(), Queries, State).
+
+q_insert_block(Hash, Block, Ledger, Chain, Queries, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     BlockTime = blockchain_block_v1:time(Block),
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
@@ -172,7 +211,7 @@ q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs
         {?S_INSERT_BLOCK, Params}
         | q_insert_signatures(
             Block,
-            q_insert_transactions(Block, Queries, Ledger, State),
+            q_insert_transactions(Block, Queries, Ledger, Chain, State),
             State
         )
     ].
@@ -195,11 +234,11 @@ q_insert_signatures(Block, Queries, #state{}) ->
         Signatures
     ).
 
-q_insert_transactions(Block, Queries, Ledger, #state{}) ->
+q_insert_transactions(Block, Queries, Ledger, Chain, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
-    JsonOpts = [{ledger, Ledger}, {chain, blockchain_worker:blockchain()}],
+    JsonOpts = [{ledger, Ledger}, {chain, Chain}],
     lists:foldl(
         fun(T, Acc) ->
             Json = #{type := Type} = be_txn:to_json(T, JsonOpts),

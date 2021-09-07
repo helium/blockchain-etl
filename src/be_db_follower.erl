@@ -1,6 +1,8 @@
 -module(be_db_follower).
 
 -callback init(Args :: any()) -> {ok, State :: any()} | {error, term()}.
+-callback load_chain(Conn :: term(), Chain :: blockchain:blockchain(), State :: any()) -> {ok, State :: any()} | {error, term()}.
+-callback snap_loaded(Conn :: term(), Chain :: blockchain:blockchain(), State :: any()) -> {ok, State :: any()} | {error, term()}.
 -callback load_block(
     Conn :: term(),
     Hash :: binary(),
@@ -9,6 +11,8 @@
     blockchain_ledger_v1:ledger(),
     State :: any()
 ) -> {ok, NewState :: any()}.
+
+-optional_callbacks([load_chain/3, snap_loaded/3]).
 
 -dialyzer(no_undefined_callbacks).
 -behavior(blockchain_follower).
@@ -23,6 +27,7 @@
     init/1,
     follower_height/1,
     load_chain/2,
+    snap_loaded/2,
     load_block/5,
     terminate/2
 ]).
@@ -80,8 +85,63 @@ follower_height(State = #state{}) ->
             be_db_block:block_height(BlockState)
     end.
 
-load_chain(_Chain, State = #state{}) ->
-    {ok, State}.
+load_chain(Chain, State = #state{handler_state = Handlers}) ->
+    LoadFun = fun(Conn) ->
+        States =
+            lists:foldl(
+                fun({Handler, HandlerState}, HandlerStates) ->
+                        case erlang:function_exported(Handler, load_chain, 3) of
+                            true ->
+                                Start = erlang:monotonic_time(millisecond),
+                                {ok, NewHandlerState} =
+                                Handler:load_chain(Conn, Chain, HandlerState),
+                                maybe_log_duration(Handler, Start),
+                                [{Handler, NewHandlerState} | HandlerStates];
+                            false ->
+                                [{Handler, HandlerState} | HandlerStates]
+                        end
+                end,
+                [],
+                Handlers
+            ),
+        {ok, lists:reverse(States)}
+    end,
+
+    Start = erlang:monotonic_time(millisecond),
+    lager:info("Storing chain: ~p", [blockchain:height(Chain)]),
+    {ok, HandlerStates} = ?WITH_TRANSACTION(LoadFun),
+    End = erlang:monotonic_time(millisecond),
+    lager:info("Stored chain took: ~p ms", [End - Start]),
+    {ok, State#state{handler_state = HandlerStates}}.
+
+snap_loaded(Chain, State = #state{handler_state = Handlers}) ->
+    LoadFun = fun(Conn) ->
+        States =
+            lists:foldl(
+                fun({Handler, HandlerState}, HandlerStates) ->
+                        case erlang:function_exported(Handler, snap_loaded, 3) of
+                            true ->
+                                Start = erlang:monotonic_time(millisecond),
+                                {ok, NewHandlerState} =
+                                Handler:snap_loaded(Conn, Chain, HandlerState),
+                                maybe_log_duration(Handler, Start),
+                                [{Handler, NewHandlerState} | HandlerStates];
+                            false ->
+                                [{Handler, HandlerState} | HandlerStates]
+                        end
+                end,
+                [],
+                Handlers
+            ),
+        {ok, lists:reverse(States)}
+    end,
+
+    Start = erlang:monotonic_time(millisecond),
+    lager:info("Storing snap: ~p", [blockchain:height(Chain)]),
+    {ok, HandlerStates} = ?WITH_TRANSACTION(LoadFun),
+    End = erlang:monotonic_time(millisecond),
+    lager:info("Stored snap took: ~p ms", [End - Start]),
+    {ok, State#state{handler_state = HandlerStates}}.
 
 load_block(Hash, Block, Sync, Ledger, State = #state{}) ->
     LoadFun = fun(Conn) ->
@@ -105,7 +165,7 @@ load_block(Hash, Block, Sync, Ledger, State = #state{}) ->
     {ok, HandlerStates} = ?WITH_TRANSACTION(LoadFun),
     End = erlang:monotonic_time(millisecond),
     lager:info("Stored block: ~p took: ~p ms", [blockchain_block_v1:height(Block), End - Start]),
-    {ok, #state{handler_state = HandlerStates}}.
+    {ok, State#state{handler_state = HandlerStates}}.
 
 terminate(_Reason, _State) ->
     ok.

@@ -22,7 +22,7 @@ to_json(<<"poc_request_v1">>, T, Opts) ->
     };
 to_json(<<"poc_receipts_v1">>, T, Opts) ->
     {ledger, Ledger} = lists:keyfind(ledger, 1, Opts),
-    Json = #{challenger := Challenger, path := Path} = blockchain_txn:to_json(T, Opts),
+    Json = #{challenger := Challenger, path := Path} = blockchain_txn:to_json(T, Opts -- [{chain, undefined}]),
     UpdateWitness = fun(WitnessJson = #{gateway := Witness}) ->
         {ok, WitnessInfo} = blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Witness), Ledger),
         WitnessLoc = blockchain_ledger_gateway_v2:location(WitnessInfo),
@@ -78,9 +78,14 @@ to_json(<<"state_channel_close_v1">>, T, Opts) ->
     };
 to_json(<<"rewards_v2">>, T, Opts) ->
     {chain, Chain} = lists:keyfind(chain, 1, Opts),
-    Start = blockchain_txn_rewards_v2:start_epoch(T),
+    case Chain of
+        undefined ->
+            blockchain_txn:to_json(T, Opts -- [{chain, undefined}]);
+        _ ->
+            Start = blockchain_txn_rewards_v2:start_epoch(T),
     End = blockchain_txn_rewards_v2:end_epoch(T),
     {ok, Metadata} = be_db_reward:calculate_rewards_metadata(Start, End, Chain),
-    blockchain_txn:to_json(T, Opts ++ [{rewards_metadata, Metadata}]);
+    blockchain_txn:to_json(T, Opts ++ [{rewards_metadata, Metadata}])
+    end;
 to_json(_Type, T, Opts) ->
     blockchain_txn:to_json(T, Opts).
