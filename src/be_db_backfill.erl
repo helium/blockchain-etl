@@ -405,7 +405,7 @@ consensus_failure_members() ->
                         ),
                         %% Re-insert actors
                         ActorQueries =
-                            be_db_txn_actor:q_insert_transaction_actors(Height, Txn),
+                            be_db_txn_actor:q_insert_transaction_actors(Height, Txn, blockchain_worker:blockchain(), []),
                         ok = ?BATCH_QUERY(Conn, ActorQueries)
                     end,
                     Txns

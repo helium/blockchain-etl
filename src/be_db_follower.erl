@@ -35,6 +35,7 @@
 %% utilities
 -export([
     fold_actors/4,
+    fold_actors/5,
     maybe_undefined/1,
     maybe_fn/2,
     maybe_b64/1,
@@ -184,6 +185,9 @@ maybe_log_duration(Item, Start) ->
     end.
 
 fold_actors(Roles, Fun, InitAcc, Block) ->
+    fold_actors(Roles, Fun, InitAcc, Block, blockchain_worker:blockchain()).
+
+fold_actors(Roles, Fun, InitAcc, Block, Chain) ->
     Txns = blockchain_block_v1:transactions(Block),
     %% Fetch actor keys that relate to accounts from each transaction's actors
     FilteredActors =
@@ -192,7 +196,7 @@ fold_actors(Roles, Fun, InitAcc, Block) ->
         end,
     ActorList = lists:usort(
         lists:flatten(
-            lists:map(fun(Txn) -> FilteredActors(be_db_txn_actor:to_actors(Txn)) end, Txns)
+            lists:map(fun(Txn) -> FilteredActors(be_db_txn_actor:to_actors(Txn, Chain)) end, Txns)
         )
     ),
     lists:foldl(fun({Role, Key}, Acc) -> Fun({Role, Key}, Acc) end, InitAcc, ActorList).

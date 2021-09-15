@@ -11,10 +11,11 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 
 -record(state, {
-    last_oracle_price :: pos_integer()
+    last_oracle_price :: pos_integer(),
+    chain :: undefined |  blockchain:blockchain()
 }).
 
 -define(S_ORACLE_PRICE_INSERT, "oracle_price_insert").
@@ -74,13 +75,20 @@ init(_) ->
     lager:info("Oracle price set at: ~p to: ~p", [Block, LastPrice]),
     {ok, #state{last_oracle_price = LastPrice}}.
 
+snap_loaded(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+
 load_block(
     Conn,
     _Hash,
     Block,
     _Sync,
     Ledger,
-    State = #state{last_oracle_price = CurrentPrice}
+    State = #state{last_oracle_price = CurrentPrice, chain=Chain}
 ) ->
     BlockHeight = blockchain_block_v1:height(Block),
     UpdateOraclePrices =
@@ -103,7 +111,7 @@ load_block(
             case blockchain:config(?price_oracle_refresh_interval, Ledger) of
                 {ok, Interval} when BlockHeight >= Interval ->
                     NextPrices = blockchain_ledger_v1:next_oracle_prices(
-                        blockchain_worker:blockchain(),
+                        Chain,
                         Ledger
                     ),
                     DeleteQueries = [{?S_ORACLE_PRICE_PREDICTION_DELETE_ALL, []}],

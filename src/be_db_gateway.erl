@@ -91,6 +91,7 @@ snap_loaded(Conn, Chain, State) ->
         Gateways
     ),
 
+    blockchain_hex:destroy_memoization(),
     be_db_follower:maybe_log_duration(db_gateway_query_make, StartMkQuery),
 
     StartQuery = erlang:monotonic_time(millisecond),
@@ -176,6 +177,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         [],
         Gateways
     ),
+    blockchain_hex:destroy_memoization(),
     be_db_follower:maybe_log_duration(db_gateway_query_make, StartMkQuery),
 
     StartQuery = erlang:monotonic_time(millisecond),

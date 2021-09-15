@@ -10,7 +10,7 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, snap_loaded/3, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% api
 -export([block_height/1, maybe_write_snapshot/2]).
 
@@ -21,7 +21,7 @@
 
 -record(state, {
     height :: non_neg_integer(),
-
+    chain :: undefined |  blockchain:blockchain(),
     base_secs = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}) :: pos_integer()
 }).
 
@@ -110,7 +110,10 @@ snap_loaded(Conn, Chain, State) ->
                   end, [Genesis|Blocks]),
     stub_missing_blocks(Conn, 2, Heights, Ledger, State),
     lager:info("setting block height to ~p", [Height]),
-    {ok, State#state{height=Height}}.
+    {ok, State#state{height=Height, chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
 
 stub_missing_blocks(Conn, Height, Heights, Ledger, State) ->
     case lists:member(Height, Heights) of
@@ -127,7 +130,7 @@ stub_missing_blocks(Conn, Height, Heights, Ledger, State) ->
             stub_missing_blocks(Conn, Height +1, Heights, Ledger, State)
     end.
 
-load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{}) ->
+load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{chain=Chain}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     ?assertEqual(
         BlockHeight,
@@ -135,9 +138,9 @@ load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{}) ->
         "New block must line up with stored height"
     ),
     %% Seperate the queries to avoid the batches getting too big
-    BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
+    BlockQueries = q_insert_block(Hash, Block, Ledger, Chain, [], State),
     ok = ?BATCH_QUERY(Conn, BlockQueries),
-    maybe_write_snapshot(Block, blockchain_worker:blockchain()),
+    maybe_write_snapshot(Block, Chain),
     {ok, State#state{height = BlockHeight}}.
 
 %%
@@ -184,9 +187,6 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = file:write_file(Filename, BinSnap),
     ok = file:write_file(Latest, LatestBin).
-
-q_insert_block(Hash, Block, Ledger, Queries, State) ->
-    q_insert_block(Hash, Block, Ledger, blockchain_worker:blockchain(), Queries, State).
 
 q_insert_block(Hash, Block, Ledger, Chain, Queries, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),

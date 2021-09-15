@@ -11,13 +11,15 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% api
--export([to_actors/1, q_insert_transaction_actors/2]).
+-export([to_actors/2, q_insert_transaction_actors/4]).
 
 -define(S_INSERT_ACTOR, "insert_actor").
 
--record(state, {}).
+-record(state, {
+          chain :: undefined | blockchain:blockchain()
+         }).
 
 %%
 %% be_db_worker
@@ -47,52 +49,58 @@ prepare_conn(Conn) ->
 init(_) ->
     {ok, #state{}}.
 
-load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
-    Queries = q_insert_block_transaction_actors(Block),
+snap_loaded(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{chain=Chain}) ->
+    Queries = q_insert_block_transaction_actors(Block, [], Chain),
     ok = ?BATCH_QUERY(Conn, Queries),
     {ok, State}.
 
-q_insert_transaction_actors(Height, Txn) ->
+q_insert_transaction_actors(Height, Txn, Chain, Acc) ->
     TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),
     lists:map(
         fun({Role, Key}) ->
             {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
         end,
-        to_actors(Txn)
+        Acc,
+        to_actors(Txn, Chain)
     ).
 
-q_insert_block_transaction_actors(Block) ->
+q_insert_block_transaction_actors(Block, Query, Chain) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
-    lists:flatten(
-        lists:map(
-            fun(Txn) ->
-                q_insert_transaction_actors(Height, Txn)
-            end,
-            Txns
-        )
+    lists:foldl(
+        fun(Txn, Acc) ->
+            q_insert_transaction_actors(Height, Txn, Chain, Acc)
+        end,
+        Query,
+        Txns
     ).
 
--spec to_actors(blockchain_txn:txn()) -> [{string(), libp2p_crypto:pubkey_bin()}].
-to_actors(T) ->
-    to_actors(blockchain_txn:type(T), T).
+-spec to_actors(blockchain_txn:txn(), blockchain:blockchain()) -> [{string(), libp2p_crypto:pubkey_bin()}].
+to_actors(T, Chain) ->
+    to_actors(blockchain_txn:type(T), T, Chain).
 
-to_actors(blockchain_txn_coinbase_v1, T) ->
+to_actors(blockchain_txn_coinbase_v1, T, _Chain) ->
     [{"payee", blockchain_txn_coinbase_v1:payee(T)}];
-to_actors(blockchain_txn_security_coinbase_v1, T) ->
+to_actors(blockchain_txn_security_coinbase_v1, T, _Chain) ->
     [{"payee", blockchain_txn_security_coinbase_v1:payee(T)}];
-to_actors(blockchain_txn_oui_v1, T) ->
+to_actors(blockchain_txn_oui_v1, T, _Chain) ->
     Routers = [{"router", R} || R <- blockchain_txn_oui_v1:addresses(T)],
     [
         {"owner", blockchain_txn_oui_v1:owner(T)},
         {"payer", blockchain_txn_oui_v1:payer(T)}
     ] ++ Routers;
-to_actors(blockchain_txn_gen_gateway_v1, T) ->
+to_actors(blockchain_txn_gen_gateway_v1, T, _Chain) ->
     [
         {"gateway", blockchain_txn_gen_gateway_v1:gateway(T)},
         {"owner", blockchain_txn_gen_gateway_v1:owner(T)}
     ];
-to_actors(blockchain_txn_routing_v1, T) ->
+to_actors(blockchain_txn_routing_v1, T, _Chain) ->
     Routers =
         case blockchain_txn_routing_v1:action(T) of
             {update_routers, Addrs} -> [{"router", R} || R <- Addrs];
@@ -102,19 +110,19 @@ to_actors(blockchain_txn_routing_v1, T) ->
         {"owner", blockchain_txn_routing_v1:owner(T)},
         {"payer", blockchain_txn_routing_v1:owner(T)}
     ] ++ Routers;
-to_actors(blockchain_txn_payment_v1, T) ->
+to_actors(blockchain_txn_payment_v1, T, _Chain) ->
     [
         {"payer", blockchain_txn_payment_v1:payer(T)},
         {"payee", blockchain_txn_payment_v1:payee(T)}
     ];
-to_actors(blockchain_txn_security_exchange_v1, T) ->
+to_actors(blockchain_txn_security_exchange_v1, T, _Chain) ->
     [
         {"payer", blockchain_txn_security_exchange_v1:payer(T)},
         {"payee", blockchain_txn_security_exchange_v1:payee(T)}
     ];
-to_actors(blockchain_txn_consensus_group_v1, T) ->
+to_actors(blockchain_txn_consensus_group_v1, T, _Chain) ->
     [{"consensus_member", M} || M <- blockchain_txn_consensus_group_v1:members(T)];
-to_actors(blockchain_txn_add_gateway_v1, T) ->
+to_actors(blockchain_txn_add_gateway_v1, T, _Chain) ->
     Owner = blockchain_txn_add_gateway_v1:owner(T),
     Payer =
         case blockchain_txn_add_gateway_v1:payer(T) of
@@ -127,7 +135,7 @@ to_actors(blockchain_txn_add_gateway_v1, T) ->
         {"owner", Owner},
         {"payer", Payer}
     ];
-to_actors(blockchain_txn_assert_location_v1, T) ->
+to_actors(blockchain_txn_assert_location_v1, T, _Chain) ->
     Owner = blockchain_txn_assert_location_v1:owner(T),
     Payer =
         case blockchain_txn_assert_location_v1:payer(T) of
@@ -140,7 +148,7 @@ to_actors(blockchain_txn_assert_location_v1, T) ->
         {"owner", Owner},
         {"payer", Payer}
     ];
-to_actors(blockchain_txn_assert_location_v2, T) ->
+to_actors(blockchain_txn_assert_location_v2, T, _Chain) ->
     Owner = blockchain_txn_assert_location_v2:owner(T),
     Payer =
         case blockchain_txn_assert_location_v2:payer(T) of
@@ -153,20 +161,20 @@ to_actors(blockchain_txn_assert_location_v2, T) ->
         {"owner", Owner},
         {"payer", Payer}
     ];
-to_actors(blockchain_txn_create_htlc_v1, T) ->
+to_actors(blockchain_txn_create_htlc_v1, T, _Chain) ->
     [
         {"payer", blockchain_txn_create_htlc_v1:payer(T)},
         {"payee", blockchain_txn_create_htlc_v1:payee(T)},
         {"escrow", blockchain_txn_create_htlc_v1:address(T)}
     ];
-to_actors(blockchain_txn_redeem_htlc_v1, T) ->
+to_actors(blockchain_txn_redeem_htlc_v1, T, _Chain) ->
     [
         {"payee", blockchain_txn_redeem_htlc_v1:payee(T)},
         {"escrow", blockchain_txn_redeem_htlc_v1:address(T)}
     ];
-to_actors(blockchain_txn_poc_request_v1, T) ->
+to_actors(blockchain_txn_poc_request_v1, T, _Chain) ->
     [{"challenger", blockchain_txn_poc_request_v1:challenger(T)}];
-to_actors(blockchain_txn_poc_receipts_v1, T) ->
+to_actors(blockchain_txn_poc_receipts_v1, T, _Chain) ->
     ToActors = fun
         (undefined, Acc0) ->
             Acc0;
@@ -192,9 +200,9 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
     lists:usort(Challengees) ++
         lists:usort(Witnesses) ++
         [{"challenger", blockchain_txn_poc_receipts_v1:challenger(T)}];
-to_actors(blockchain_txn_vars_v1, _T) ->
+to_actors(blockchain_txn_vars_v1, _T, _Chain) ->
     [];
-to_actors(blockchain_txn_rewards_v1, T) ->
+to_actors(blockchain_txn_rewards_v1, T, _Chain) ->
     ToActors = fun(R, {PayeeAcc0, GatewayAcc0}) ->
         PayeeAcc = [{"payee", blockchain_txn_reward_v1:account(R)} | PayeeAcc0],
         GatewayAcc =
@@ -210,12 +218,11 @@ to_actors(blockchain_txn_rewards_v1, T) ->
         blockchain_txn_rewards_v1:rewards(T)
     ),
     lists:usort(Payees) ++ lists:usort(Gateways);
-to_actors(blockchain_txn_rewards_v2, T) ->
+to_actors(blockchain_txn_rewards_v2, T, Chain) ->
     Start = blockchain_txn_rewards_v2:start_epoch(T),
     End = blockchain_txn_rewards_v2:end_epoch(T),
     %% rewards_v2 violates to_actor conventions by requiring the chain and
     %% ledger to construct it actors
-    Chain = blockchain_worker:blockchain(),
     {ok, Ledger} = blockchain:ledger_at(End, Chain),
     {ok, Metadata} = be_db_reward:calculate_rewards_metadata(
         Start,
@@ -261,16 +268,16 @@ to_actors(blockchain_txn_rewards_v2, T) ->
         Metadata
     ),
     lists:usort(Payees) ++ lists:usort(Gateways);
-to_actors(blockchain_txn_token_burn_v1, T) ->
+to_actors(blockchain_txn_token_burn_v1, T, _Chain) ->
     [
         {"payer", blockchain_txn_token_burn_v1:payer(T)},
         {"payee", blockchain_txn_token_burn_v1:payee(T)}
     ];
-to_actors(blockchain_txn_dc_coinbase_v1, T) ->
+to_actors(blockchain_txn_dc_coinbase_v1, T, _Chain) ->
     [{"payee", blockchain_txn_dc_coinbase_v1:payee(T)}];
-to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T) ->
+to_actors(blockchain_txn_token_burn_exchange_rate_v1, _T, _Chain) ->
     [];
-to_actors(blockchain_txn_payment_v2, T) ->
+to_actors(blockchain_txn_payment_v2, T, _Chain) ->
     ToActors = fun(Payment, Acc) ->
         [{"payee", blockchain_payment_v2:payee(Payment)} | Acc]
     end,
@@ -279,12 +286,12 @@ to_actors(blockchain_txn_payment_v2, T) ->
         [{"payer", blockchain_txn_payment_v2:payer(T)}],
         blockchain_txn_payment_v2:payments(T)
     );
-to_actors(blockchain_txn_state_channel_open_v1, T) ->
+to_actors(blockchain_txn_state_channel_open_v1, T, _Chain) ->
     %% TODO: In v1 state channels we're assuminig the the opener is
     %% the payer of the DC in the state channel.
     Opener = blockchain_txn_state_channel_open_v1:owner(T),
     [{"sc_opener", Opener}, {"payer", Opener}, {"owner", Opener}];
-to_actors(blockchain_txn_state_channel_close_v1, T) ->
+to_actors(blockchain_txn_state_channel_close_v1, T, _Chain) ->
     %% NOTE: closer can be one of the clients of the state channel or the owner of the router
     %% if the state_channel expires
     SummaryToActors = fun(Summary, Acc) ->
@@ -308,41 +315,41 @@ to_actors(blockchain_txn_state_channel_close_v1, T) ->
             blockchain_txn_state_channel_close_v1:state_channel(T)
         )
     );
-to_actors(blockchain_txn_gen_price_oracle_v1, _T) ->
+to_actors(blockchain_txn_gen_price_oracle_v1, _T, _Chain) ->
     [];
-to_actors(blockchain_txn_price_oracle_v1, T) ->
+to_actors(blockchain_txn_price_oracle_v1, T, _Chain) ->
     [{"oracle", blockchain_txn_price_oracle_v1:public_key(T)}];
-to_actors(blockchain_txn_transfer_hotspot_v1, T) ->
+to_actors(blockchain_txn_transfer_hotspot_v1, T, _Chain) ->
     [
         {"gateway", blockchain_txn_transfer_hotspot_v1:gateway(T)},
         {"payee", blockchain_txn_transfer_hotspot_v1:seller(T)},
         {"payer", blockchain_txn_transfer_hotspot_v1:buyer(T)},
         {"owner", blockchain_txn_transfer_hotspot_v1:buyer(T)}
     ];
-to_actors(blockchain_txn_transfer_hotspot_v2, T) ->
+to_actors(blockchain_txn_transfer_hotspot_v2, T, _Chain) ->
     [
         {"gateway", blockchain_txn_transfer_hotspot_v2:gateway(T)},
         {"owner", blockchain_txn_transfer_hotspot_v2:new_owner(T)}
     ];
-to_actors(blockchain_txn_gen_validator_v1, T) ->
+to_actors(blockchain_txn_gen_validator_v1, T, _Chain) ->
     [
         {"validator", blockchain_txn_gen_validator_v1:address(T)},
         {"payer", blockchain_txn_gen_validator_v1:owner(T)},
         {"owner", blockchain_txn_gen_validator_v1:owner(T)}
     ];
-to_actors(blockchain_txn_stake_validator_v1, T) ->
+to_actors(blockchain_txn_stake_validator_v1, T, _Chain) ->
     [
         {"validator", blockchain_txn_stake_validator_v1:validator(T)},
         {"payer", blockchain_txn_stake_validator_v1:owner(T)},
         {"owner", blockchain_txn_stake_validator_v1:owner(T)}
     ];
-to_actors(blockchain_txn_unstake_validator_v1, T) ->
+to_actors(blockchain_txn_unstake_validator_v1, T, _Chain) ->
     [
         {"validator", blockchain_txn_unstake_validator_v1:address(T)},
         {"payee", blockchain_txn_unstake_validator_v1:owner(T)},
         {"owner", blockchain_txn_unstake_validator_v1:owner(T)}
     ];
-to_actors(blockchain_txn_transfer_validator_stake_v1, T) ->
+to_actors(blockchain_txn_transfer_validator_stake_v1, T, _Chain) ->
     OldOwner = blockchain_txn_transfer_validator_stake_v1:old_owner(T),
     NewOwner = blockchain_txn_transfer_validator_stake_v1:new_owner(T),
     Owners =
@@ -357,11 +364,11 @@ to_actors(blockchain_txn_transfer_validator_stake_v1, T) ->
         {"payer", blockchain_txn_transfer_validator_stake_v1:new_owner(T)},
         {"payee", blockchain_txn_transfer_validator_stake_v1:old_owner(T)}
     ] ++ Owners;
-to_actors(blockchain_txn_validator_heartbeat_v1, T) ->
+to_actors(blockchain_txn_validator_heartbeat_v1, T, _Chain) ->
     [
         {"validator", blockchain_txn_validator_heartbeat_v1:address(T)}
     ];
-to_actors(blockchain_txn_consensus_group_failure_v1, T) ->
+to_actors(blockchain_txn_consensus_group_failure_v1, T, _Chain) ->
     Members = [
         {"consensus_failure_member", M}
      || M <- blockchain_txn_consensus_group_failure_v1:members(T)

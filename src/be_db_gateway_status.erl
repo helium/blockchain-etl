@@ -230,11 +230,8 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
                 ]
             )
         catch
-            What:Why:Stack ->
-                lager:info("Failed to update gateway status for ~p: ~p", [
-                    B58Address,
-                    {What, Why, Stack}
-                ])
+            _What:_Why:_Stack ->
+                ok
         after
             ets:delete(Requests, B58Address)
         end

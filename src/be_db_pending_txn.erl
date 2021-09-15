@@ -158,7 +158,7 @@ handle_info({submit_pending, Stmt}, State = #state{}) ->
                 ]
             end,
             Acc,
-            be_db_txn_actor:to_actors(Txn)
+            be_db_txn_actor:to_actors(Txn, blockchain_worker:blockchain())
         )
     end,
 

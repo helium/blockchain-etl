@@ -5,14 +5,16 @@
 
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% api
 -export([calculate_rewards_metadata/3]).
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
 
--record(state, {}).
+-record(state, {
+          chain :: undefined | blockchain:blockchain()
+         }).
 
 -define(S_INSERT_REWARD, "insert_reward").
 
@@ -40,7 +42,13 @@ init(_) ->
     ets:new(?MODULE, [public, named_table]),
     {ok, #state{}}.
 
-load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
+snap_loaded(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{chain=Chain}) ->
     BlockHeight = blockchain_block_v1:height(Block),
     BlockTime = blockchain_block_v1:time(Block),
     Txns = lists:filter(
@@ -55,7 +63,7 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
             TxnHash = ?BIN_TO_B64(blockchain_txn:hash(T)),
             RewardMap = collect_rewards(
                 blockchain_txn:type(T),
-                blockchain_worker:blockchain(),
+                Chain,
                 T,
                 #{}
             ),
