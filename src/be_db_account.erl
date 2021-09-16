@@ -9,7 +9,7 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_db_follower
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% hooks
 -export([incremental_commit_hook/1, end_commit_hook/2]).
 
@@ -24,7 +24,7 @@
     nonce = 0
 }).
 
--record(state, {}).
+-record(state, {chain}).
 
 -define(S_ACCOUNT_INSERT, "account_insert").
 
@@ -63,6 +63,12 @@ prepare_conn(Conn) ->
 init(_) ->
     ets:new(?MODULE, [public, named_table]),
     {ok, #state{}}.
+
+snap_loaded(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     StartStaked = erlang:monotonic_time(millisecond),
@@ -109,7 +115,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             maps:put(Key, UpdateAccount(Account), Acc)
         end,
         #{},
-        Block
+        Block,
+        State#state.chain
     ),
     be_db_follower:maybe_log_duration(db_account_actor_fold, StartActor),
 

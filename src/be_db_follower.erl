@@ -34,7 +34,6 @@
 
 %% utilities
 -export([
-    fold_actors/4,
     fold_actors/5,
     maybe_undefined/1,
     maybe_fn/2,
@@ -183,9 +182,6 @@ maybe_log_duration(Item, Start) ->
         _ ->
             ok
     end.
-
-fold_actors(Roles, Fun, InitAcc, Block) ->
-    fold_actors(Roles, Fun, InitAcc, Block, blockchain_worker:blockchain()).
 
 fold_actors(Roles, Fun, InitAcc, Block, Chain) ->
     Txns = blockchain_block_v1:transactions(Block),

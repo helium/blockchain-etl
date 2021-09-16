@@ -9,11 +9,11 @@
 %% be_db_worker
 -export([prepare_conn/1]).
 %% be_db_follower
--export([init/1, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% hooks
 -export([incremental_commit_hook/1, end_commit_hook/2]).
 
--record(state, {}).
+-record(state, {chain}).
 
 -define(S_VALIDATOR_INSERT, "validator_insert").
 
@@ -55,6 +55,12 @@ init(_) ->
     ets:new(?MODULE, [public, named_table]),
     {ok, #state{}}.
 
+snap_loaded(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
+
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Collect all validator affected by transactions in the block itself
     BlockValidators = be_db_follower:fold_actors(
@@ -64,7 +70,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             maps:put(Key, Entry, Acc)
         end,
         #{},
-        Block
+        Block,
+        State#state.chain
     ),
     %% Merge in any validators that are indirectly updated by the ledger and stashed
     %% in the module ets table

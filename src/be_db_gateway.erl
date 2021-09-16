@@ -5,7 +5,7 @@
 
 -export([prepare_conn/1]).
 %% be_block_handler
--export([init/1, snap_loaded/3, load_block/6]).
+-export([init/1, snap_loaded/3, load_chain/3, load_block/6]).
 %% hooks
 -export([incremental_commit_hook/1, end_commit_hook/2]).
 %% api
@@ -14,7 +14,7 @@
 -behavior(be_db_worker).
 -behavior(be_db_follower).
 
--record(state, {}).
+-record(state, {chain}).
 
 -define(S_INSERT_GATEWAY, "insert_gateway").
 
@@ -99,8 +99,10 @@ snap_loaded(Conn, Chain, State) ->
     be_db_follower:maybe_log_duration(db_gateway_query_exec, StartQuery),
 
     lager:info("inserted ~p gateways", [maps:size(Gateways)]),
-    {ok, State}.
+    {ok, State#state{chain=Chain}}.
 
+load_chain(_Conn, Chain, State) ->
+    {ok, State#state{chain=Chain}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Construct the list of gateways that have changed in this block based on
@@ -122,7 +124,8 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             maps:put(Key, true, Acc)
         end,
         #{},
-        Block
+        Block,
+        State#state.chain
     ),
     be_db_follower:maybe_log_duration(db_gateway_actor_fold, StartActor),
 
