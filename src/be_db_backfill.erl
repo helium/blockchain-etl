@@ -14,7 +14,8 @@
     dc_burn/2,
     oracle_price_at/1,
     gateway_payers/0,
-    consensus_failure_members/0
+    consensus_failure_members/0,
+    gateway_location_clear_nulls/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -402,3 +403,22 @@ consensus_failure_members() ->
         0,
         Blocks
     ).
+
+%%
+%% Remove location rows with null street, city, state, country columns. The
+%% geocoder will backfill as needed.
+%%
+
+gateway_location_clear_nulls() ->
+    {ok, Deleted} = ?EQUERY(
+        [
+            "delete from locations ",
+            "where ",
+            "short_street is null || long_street is null || ",
+            "short_city is null || long_city is null || ",
+            "short_state is null || long_state is null || ",
+            "short_country is null || long_country is null "
+        ],
+        []
+    ),
+    Deleted.

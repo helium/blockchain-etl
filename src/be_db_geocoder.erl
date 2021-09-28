@@ -255,25 +255,36 @@ parse_geocode_results(#{<<"results">> := [], <<"status">> := <<"ZERO_RESULTS">>}
     });
 parse_geocode_results(#{<<"results">> := [], <<"status">> := Status}) ->
     {error, {status, Status}};
-parse_geocode_results(#{<<"results">> := [#{<<"address_components">> := Components} | _Tail]}) ->
-    %% We currently only examine the first set of returned components
+parse_geocode_results(#{<<"results">> := Results}) ->
     {ok, #{
-        street => find_types(
+        street => find_result_types(
             [<<"route">>, <<"sublocality_level_1">>],
-            Components
+            Results
         ),
-        city => find_types(
+        city => find_result_types(
             [
                 <<"locality">>,
                 <<"sublocality">>,
                 <<"postal_town">>,
                 <<"administrative_area_level_3">>
             ],
-            Components
+            Results
         ),
-        state => find_types([<<"administrative_area_level_1">>], Components),
-        country => find_types([<<"country">>], Components)
+        state => find_result_types([<<"administrative_area_level_1">>], Results),
+        country => find_result_types([<<"country">>], Results)
     }}.
+
+find_result_types(_Types, []) ->
+    {undefined, undefined};
+find_result_types(Types, [#{<<"address_components">> := Components} | Tail]) ->
+    case find_types(Types, Components) of
+        {Short, Long} when Short == undefined orelse Long == undefined ->
+            find_result_types(Types, Tail);
+        {Short, Long} ->
+            {Short, Long}
+    end;
+find_result_types(Types, [_ | Tail]) ->
+    find_result_types(Types, Tail).
 
 find_types([], _Components) ->
     {undefined, undefined};
@@ -288,9 +299,10 @@ find_types([Type | Tail], Components) ->
                     false ->
                         false;
                     true ->
-                        {true,
-                            {maps:get(<<"short_name">>, Entry, undefined),
-                                maps:get(<<"long_name">>, Entry, undefined)}}
+                        {true, {
+                            maps:get(<<"short_name">>, Entry, undefined),
+                            maps:get(<<"long_name">>, Entry, undefined)
+                        }}
                 end
             end,
             Components
