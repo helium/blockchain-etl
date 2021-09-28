@@ -240,26 +240,38 @@ reward_gateways(MinBlock, MaxBlock) ->
 %%
 
 gateway_location_hex() ->
-    {ok, _, NoLocs} =
+    {ok, _, Locs} =
         ?EQUERY(
             [
-                "select address, location from gateway_inventory where location is not null"
+                "select address, location from gateway_inventory"
             ],
             []
         ),
 
-    lists:foreach(
-        fun({Addr, LocationBin}) ->
-            Location = h3:from_string(binary_to_list(LocationBin)),
-            {ok, _} =
-                ?EQUERY("update gateway_inventory set location_hex = $2 where address = $1", [
-                    Addr,
-                    ?MAYBE_H3(?MAYBE_FN(fun be_db_gateway:calculate_location_hex/1, Location))
-                ])
-        end,
-        NoLocs
-    ),
-    length(NoLocs).
+    erlang:spawn(fun() ->
+        lager:info("backfill starting location_hex [~p]", [length(Locs)]),
+        blockchain_utils:pmap(
+            fun
+                ({_Addr, null}) ->
+                    ok;
+                ({Addr, LocationBin}) ->
+                    Location = h3:from_string(binary_to_list(LocationBin)),
+                    {ok, _} =
+                        ?EQUERY(
+                            "update gateway_inventory set location_hex = $2 where address = $1",
+                            [
+                                Addr,
+                                ?MAYBE_H3(
+                                    ?MAYBE_FN(fun be_db_gateway:calculate_location_hex/1, Location)
+                                )
+                            ]
+                        )
+            end,
+            Locs
+        ),
+        lager:info("backfill complete location_hex [~p]", [length(Locs)])
+    end),
+    ok.
 
 %%
 %% Backfill dc_burn

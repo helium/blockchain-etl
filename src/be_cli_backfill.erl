@@ -339,7 +339,7 @@ backfill_gateway_location_hex_usage() ->
         ["backfill", "gateway_location_hex"],
         [
             "backfill location_hex \n\n",
-            "  Fixes NULL location_hex entries in the gateway_inventory table.\n\n"
+            "  Fixes all location_hex entries in the gateway_inventory table.\n\n"
         ]
     ].
 
