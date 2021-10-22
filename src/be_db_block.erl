@@ -144,7 +144,7 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
         end,
     LatestBin = jsone:encode(#{height => Height,
                                hash => base64url:encode(SnapshotHash)}),
-    Latest = filename:join([SnapshotDir, "latest-snapshot.json"]),
+    Latest = filename:join([SnapshotDir, "latest-snap.json"]),
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = file:write_file(Filename, BinSnap),
     ok = file:write_file(Latest, LatestBin).
