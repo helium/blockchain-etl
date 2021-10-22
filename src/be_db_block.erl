@@ -142,8 +142,11 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
             {error, not_found} -> blockchain:get_snapshot(Height, Chain);
             Other -> Other
         end,
+    LatestIOList = io_lib:format("~p~n~p~n", [Height, base58:binary_to_base58(SnapshotHash)]),
+    Latest = filename:join([SnapshotDir, "latest-snap"]),
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
-    ok = file:write_file(Filename, BinSnap).
+    ok = file:write_file(Filename, BinSnap),
+    ok = file:write_file(Latest, LatestIOList).
 
 q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
