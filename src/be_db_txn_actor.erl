@@ -322,6 +322,11 @@ to_actors(blockchain_txn_transfer_hotspot_v1, T) ->
         {"payer", blockchain_txn_transfer_hotspot_v1:buyer(T)},
         {"owner", blockchain_txn_transfer_hotspot_v1:buyer(T)}
     ];
+to_actors(blockchain_txn_transfer_hotspot_v2, T) ->
+    [
+        {"gateway", blockchain_txn_transfer_hotspot_v2:gateway(T)},
+        {"owner", blockchain_txn_transfer_hotspot_v2:new_owner(T)}
+    ];
 to_actors(blockchain_txn_gen_validator_v1, T) ->
     [
         {"validator", blockchain_txn_gen_validator_v1:address(T)},
