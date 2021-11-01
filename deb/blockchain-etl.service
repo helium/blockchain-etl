@@ -11,8 +11,8 @@ PIDFile=/var/data/blockchain_etl/blockchain_etl.pid
 Environment=HOME="/var/data/blockchain_etl"
 Environment=RUNNER_LOG_DIR="/var/data/log/blockchain_etl"
 Environment=ERL_CRASH_DUMP="/var/data/log/blockchain_etl"
-LimitNOFILE=64000
-LimitNPROC=64000
+LimitNOFILE=200000
+LimitNPROC=200000
 Restart=always
 
 [Install]
