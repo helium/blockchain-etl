@@ -29,7 +29,8 @@ register_all_usage() ->
             backfill_dc_burn_usage(),
             backfill_gateway_payers_usage(),
             backfill_consensus_failure_members_usage(),
-            backfill_gateway_location_clear_nulls_usage()
+            backfill_gateway_location_clear_nulls_usage(),
+            backfill_gateway_dataonly_clear_scale_usage()
         ]
     ).
 
@@ -50,7 +51,8 @@ register_all_cmds() ->
             backfill_dc_burn_cmd(),
             backfill_gateway_payers_cmd(),
             backfill_consensus_failure_members_cmd(),
-            backfill_gateway_location_clear_nulls_cmd()
+            backfill_gateway_location_clear_nulls_cmd(),
+            backfill_gateway_dataonly_clear_scale_cmd()
         ]
     ).
 
@@ -74,6 +76,7 @@ backfill_usage() ->
             "  backfill gateway_payers               - Backfill payers in gateway_inventory.\n"
             "  backfill consensus_failure_members    - Backfill consensus failure actors.\n"
             "  backfill gateway_location_clear_nulls - CLear location entries with null address components.\n"
+            "  backfill gateway_dataonly_clear_scale - CLear reward_scale for dataonly hotspots.\n"
         ]
     ].
 
@@ -468,3 +471,29 @@ backfill_gateway_location_clear_nulls_usage() ->
 backfill_gateway_location_clear_nulls(_CmdBase, [], []) ->
     Deleted = be_db_backfill:gateway_location_clear_nulls(),
     [clique_status:text(io_lib:format("Deleted ~p", [Deleted]))].
+
+%%
+%% gateway_dataonly_clear_scale
+%%
+
+backfill_gateway_dataonly_clear_scale_cmd() ->
+    [
+        [
+            ["backfill", "gateway_dataonly_clear_scale"],
+            [],
+            [],
+            fun backfill_gateway_dataonly_clear_scale/3
+        ]
+    ].
+
+backfill_gateway_dataonly_clear_scale_usage() ->
+    [
+        ["backfill", "gateway_dataonly_clear_scale"],
+        [
+            "Remove reward_scale for dataonly gateways.\n\n"
+        ]
+    ].
+
+backfill_gateway_dataonly_clear_scale(_CmdBase, [], []) ->
+    ok = be_db_backfill:gateway_clear_dataonly_reward_scale(),
+    [clique_status:text("Started")].
