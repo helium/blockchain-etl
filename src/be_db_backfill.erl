@@ -15,7 +15,8 @@
     oracle_price_at/1,
     gateway_payers/0,
     consensus_failure_members/0,
-    gateway_location_clear_nulls/0
+    gateway_location_clear_nulls/0,
+    gateway_clear_dataonly_reward_scale/0
 ]).
 
 -define(INSERT_RECEIPTS_CHALLENGERS, [
@@ -434,3 +435,33 @@ gateway_location_clear_nulls() ->
         []
     ),
     Deleted.
+
+%%
+%% Remove inadvertent reward_scale from dataonly hotspots
+%%
+
+gateway_clear_dataonly_reward_scale() ->
+    erlang:spawn(fun() ->
+        lager:info("backfill starting clear dataonly reward_scale"),
+        {ok, UpdatedGateways} = ?EQUERY(
+            [
+                "update gateways set reward_scale = null ",
+                "where mode = 'dataonly'"
+            ],
+            []
+        ),
+
+        {ok, UpdatedInventory} = ?EQUERY(
+            [
+                "update gateway_inventory set reward_scale = null ",
+                "where mode = 'dataonly'"
+            ],
+            []
+        ),
+
+        lager:info("backfill done clear dataonly reward_scale, gateways: ~p inventory: ~p", [
+            UpdatedGateways,
+            UpdatedInventory
+        ])
+    end),
+    ok.

@@ -148,6 +148,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
 q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
     B58Address = ?BIN_TO_B58(Address),
     {ok, Name} = erl_angry_purple_tiger:animal_name(B58Address),
+    Mode = blockchain_ledger_gateway_v2:mode(GW),
     Location = blockchain_ledger_gateway_v2:location(GW),
     RewardScale =
         case ChangeType of
@@ -156,9 +157,11 @@ q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
             election ->
                 ?MAYBE_FN(
                     fun(L) ->
-                        case blockchain_hex:scale(L, Ledger) of
-                            {ok, V} -> blockchain_utils:normalize_float(V);
-                            {error, _} -> undefined
+                        %% Only insert scale value for "full | light" gateways
+                        case {Mode, blockchain_hex:scale(L, Ledger)} of
+                            {full, {ok, V}} -> blockchain_utils:normalize_float(V);
+                            {light, {ok, V}} -> blockchain_utils:normalize_float(V);
+                            _ -> undefined
                         end
                     end,
                     Location
