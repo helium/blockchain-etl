@@ -56,7 +56,7 @@ q_insert_transaction_actors(Height, Txn) ->
     TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),
     lists:map(
         fun({Role, Key}) ->
-                       {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
+            {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
         end,
         to_actors(Txn)
     ).
@@ -64,7 +64,7 @@ q_insert_transaction_actors(Height, Txn) ->
 q_insert_block_transaction_actors(Block) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
-    be_utils:pmap(
+    lists:map(
         fun(Txn) ->
             q_insert_transaction_actors(Height, Txn)
         end,
