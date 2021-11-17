@@ -64,11 +64,13 @@ q_insert_transaction_actors(Height, Txn) ->
 q_insert_block_transaction_actors(Block) ->
     Height = blockchain_block_v1:height(Block),
     Txns = blockchain_block_v1:transactions(Block),
-    lists:map(
-        fun(Txn) ->
-            q_insert_transaction_actors(Height, Txn)
-        end,
-        Txns
+    lists:flatten(
+        lists:map(
+            fun(Txn) ->
+                q_insert_transaction_actors(Height, Txn)
+            end,
+            Txns
+        )
     ).
 
 -spec to_actors(blockchain_txn:txn()) -> [{string(), libp2p_crypto:pubkey_bin()}].
