@@ -45,8 +45,9 @@ prepare_conn(Conn) ->
             [
                 "insert into blocks ",
                 "(created_at, height, time, timestamp, prev_hash, block_hash, transaction_count, ",
-                " hbbft_round, election_epoch, epoch_start, rescue_signature, snapshot_hash) ",
-                "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);"
+                " hbbft_round, election_epoch, epoch_start, rescue_signature, snapshot_hash, "
+                " block_size) ",
+                "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);"
             ],
             []
         ),
@@ -98,10 +99,11 @@ load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{}) ->
         State#state.height + 1,
         "New block must line up with stored height"
     ),
+    Chain = blockchain_worker:blockchain(),
     %% Seperate the queries to avoid the batches getting too big
-    BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
+    BlockQueries = q_insert_block(Hash, Block, Chain, Ledger, [], State),
     ok = ?BATCH_QUERY(Conn, BlockQueries),
-    maybe_write_snapshot(Block, blockchain_worker:blockchain()),
+    maybe_write_snapshot(Block, Chain),
     {ok, State#state{height = BlockHeight}}.
 
 %%
@@ -142,21 +144,29 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
             {error, not_found} -> blockchain:get_snapshot(Height, Chain);
             Other -> Other
         end,
-    LatestBin = jsone:encode(#{height => Height,
-                               hash => base64url:encode(SnapshotHash)}),
+    LatestBin = jsone:encode(#{
+        height => Height,
+        hash => base64url:encode(SnapshotHash)
+    }),
     Latest = filename:join([SnapshotDir, "latest-snap.json"]),
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = file:write_file(Filename, BinSnap),
     ok = file:write_file(Latest, LatestBin).
 
-q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
+q_insert_block(Hash, Block, Chain, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     BlockTime = blockchain_block_v1:time(Block),
+    BlockHeight = blockchain_worker:blockchain(),
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
     CurrentDate = calendar:universal_time(),
+    BlockSize =
+        case blockchain:get_raw_block(BlockHeight, Chain) of
+            {ok, BinBlock} -> byte_size(BinBlock);
+            _ -> undefined
+        end,
     Params = [
         CurrentDate,
-        blockchain_block_v1:height(Block),
+        BlockHeight,
         BlockTime,
         BlockDate,
         ?BIN_TO_B64(blockchain_block_v1:prev_hash(Block)),
@@ -166,7 +176,8 @@ q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs
         ElectionEpoch,
         EpochStart,
         ?BIN_TO_B64(blockchain_block_v1:rescue_signature(Block)),
-        ?MAYBE_B64(blockchain_block_v1:snapshot_hash(Block))
+        ?MAYBE_B64(blockchain_block_v1:snapshot_hash(Block)),
+        BlockSize
     ],
     [
         {?S_INSERT_BLOCK, Params}
