@@ -62,9 +62,12 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{chain=Chain}) ->
 
 q_insert_transaction_actors(Height, Txn, Chain, Acc) ->
     TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),
-    lists:map(
-        fun({Role, Key}) ->
-            {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
+    lists:foldl(
+        fun({Role, Key}, ActorAcc) ->
+            [
+                {?S_INSERT_ACTOR, [Height, ?BIN_TO_B58(Key), Role, TxnHash]}
+                | ActorAcc
+            ]
         end,
         Acc,
         to_actors(Txn, Chain)
