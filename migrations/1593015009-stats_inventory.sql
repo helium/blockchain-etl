@@ -12,7 +12,7 @@ insert into stats_inventory (name, value) values
        ('blocks', (select COALESCE(max(height), 0) from blocks)),
        ('hotspots', (select COALESCE(count(*), 0) from gateway_inventory)),
        ('consensus_groups', (select COALESCE(count(*), 0) from transactions where type = 'consensus_group_v1')),
-       ('challenges', (select COALESCE(count(*), 0) from transactions where type = 'poc_receipts_v1'));
+       ('challenges', (select COALESCE(count(*), 0) from transactions where type in ('poc_receipts_v1', 'poc_receipts_v2')));
 
 -- :down
 
