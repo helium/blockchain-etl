@@ -58,10 +58,13 @@ init(_) ->
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% Collect all validator affected by transactions in the block itself
     BlockValidators = be_db_follower:fold_actors(
-        ["validator"],
+        ["validator", "challenger", "consensus_member"],
         fun({_Role, Key}, Acc) ->
-            {ok, Entry} = blockchain_ledger_v1:get_validator(Key, Ledger),
-            maps:put(Key, Entry, Acc)
+            %% handle validators not being challengers since they weren't always
+            case blockchain_ledger_v1:get_validator(Key, Ledger) of
+                {ok, Entry} -> maps:put(Key, Entry, Acc);
+                _ -> Acc
+            end
         end,
         #{},
         Block
@@ -130,23 +133,25 @@ q_insert_validator(BlockHeight, Entry, Ledger) ->
 penalties_to_json(Penalties) ->
     try
         lists:map(
-          fun(Penalty) ->
-                  #{
+            fun(Penalty) ->
+                #{
                     type => blockchain_ledger_validator_v1:penalty_type(Penalty),
                     height => blockchain_ledger_validator_v1:penalty_height(Penalty),
                     amount => blockchain_ledger_validator_v1:penalty_amount(Penalty)
-                   }
-          end,
-          Penalties
-         )
-    catch _:_ ->
+                }
+            end,
+            Penalties
+        )
+    catch
+        _:_ ->
             []
     end.
 
 calculate_penalty_value(Entry, Ledger) ->
     try
         blockchain_ledger_validator_v1:calculate_penalty_value(Entry, Ledger)
-    catch _:_ ->
+    catch
+        _:_ ->
             0.0
     end.
 
