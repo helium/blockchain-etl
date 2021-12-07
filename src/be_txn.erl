@@ -77,11 +77,11 @@ to_json(<<"poc_receipts_v2">>, T, Opts) ->
             witnesses => [UpdateWitness(W) || W <- Witnesses]
         }
     end,
-    {ok, ChallengerInfo} = blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Challenger), Ledger),
-    ChallengerLoc = blockchain_ledger_gateway_v2:location(ChallengerInfo),
+    {ok, ChallengerInfo} = blockchain_ledger_v1:get_validator(?B58_TO_BIN(Challenger), Ledger),
     Json#{
-        challenger_owner => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(ChallengerInfo)),
-        challenger_location => ?MAYBE_H3(ChallengerLoc),
+        challenger_owner => ?BIN_TO_B58(
+            blockchain_ledger_validator_v1:owner_address(ChallengerInfo)
+        ),
         path => [UpdatePath(E) || E <- Path]
     };
 to_json(<<"state_channel_close_v1">>, T, Opts) ->
