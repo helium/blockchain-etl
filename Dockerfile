@@ -1,4 +1,4 @@
-FROM erlang:22.3.2-alpine as builder
+FROM erlang:22.3.2-alpine as deps-compiler
 
 RUN apk add --no-cache --update \
     git tar build-base linux-headers autoconf automake libtool pkgconfig \
@@ -16,15 +16,22 @@ ENV CC=gcc CXX=g++ CFLAGS="-U__sun__" \
     PATH="/root/.cargo/bin:$PATH" \
     RUSTFLAGS="-C target-feature=-crt-static"
 
+# Add and compile the dependencies to cache
+COPY ./rebar* ./
+
+RUN ./rebar3 compile
+
+FROM deps-compiler as builder
+
 # Add our code
-ADD . /usr/src/etl/
+COPY . .
 
 RUN ./rebar3 as docker_etl tar
 RUN mkdir -p /opt/docker
 RUN tar -zxvf _build/docker_etl/rel/*/*.tar.gz -C /opt/docker
 RUN mkdir -p /opt/docker/update
 
-FROM erlang:22.3.2-alpine as runner
+FROM alpine as runner
 
 RUN apk add --no-cache --update ncurses dbus gmp libsodium gcc
 RUN ulimit -n 64000
