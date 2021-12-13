@@ -153,3 +153,13 @@ Start the ETL.
 Log the ETL output.
 
 `tail -f /path/to/etl_data/log/console.log`
+
+## Database snapshots
+
+Members of the [Decentralized Wireless Alliance](https://dewi.org) capture and publish regular ETL ledger and postgres database backups from the [DeWi ETL](https://etl.dewi.org) instance, which can help speed up loading a new instance: https://etl-snapshots.dewi.org/
+
+Note that this is offered as-is, without consistency guarantees, and is not endorsed by Helium Inc or the blockchain-etl maintainers. Caveat emptor.
+
+## Questions & support
+
+If you have trouble, please ask questions in the `#blockchain-development` channel on the [official Helium Discord](https://discord.gg/v9dD4nZK3Y) rather than filing issues here.
