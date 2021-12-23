@@ -99,7 +99,7 @@ load_block(Conn, Hash, Block, _Sync, Ledger, State = #state{}) ->
         "New block must line up with stored height"
     ),
     %% Seperate the queries to avoid the batches getting too big
-    BlockQueries = q_insert_block(Hash, Block, Ledger, [], State),
+    BlockQueries = q_insert_block(Hash, Block, Ledger, State),
     ok = ?BATCH_QUERY(Conn, BlockQueries),
     maybe_write_snapshot(Block, blockchain_worker:blockchain()),
     {ok, State#state{height = BlockHeight}}.
@@ -142,14 +142,16 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
             {error, not_found} -> blockchain:get_snapshot(Height, Chain);
             Other -> Other
         end,
-    LatestBin = jsone:encode(#{height => Height,
-                               hash => base64url:encode(SnapshotHash)}),
+    LatestBin = jsone:encode(#{
+        height => Height,
+        hash => base64url:encode(SnapshotHash)
+    }),
     Latest = filename:join([SnapshotDir, "latest-snap.json"]),
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = file:write_file(Filename, BinSnap),
     ok = file:write_file(Latest, LatestBin).
 
-q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs}) ->
+q_insert_block(Hash, Block, Ledger, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
     BlockTime = blockchain_block_v1:time(Block),
     BlockDate = calendar:gregorian_seconds_to_datetime(BaseSecs + BlockTime),
@@ -170,50 +172,39 @@ q_insert_block(Hash, Block, Ledger, Queries, State = #state{base_secs = BaseSecs
     ],
     [
         {?S_INSERT_BLOCK, Params}
-        | q_insert_signatures(
-            Block,
-            q_insert_transactions(Block, Queries, Ledger, State),
-            State
-        )
+        | q_insert_signatures(Block, State) ++
+            q_insert_transactions(Block, Ledger, State)
     ].
 
-q_insert_signatures(Block, Queries, #state{}) ->
+q_insert_signatures(Block, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Signatures = blockchain_block_v1:signatures(Block),
-    lists:foldl(
-        fun({Signer, Signature}, Acc) ->
-            [
-                {?S_INSERT_BLOCK_SIG, [
-                    Height,
-                    ?BIN_TO_B58(Signer),
-                    ?BIN_TO_B64(Signature)
-                ]}
-                | Acc
-            ]
+    lists:map(
+        fun({Signer, Signature}) ->
+            {?S_INSERT_BLOCK_SIG, [
+                Height,
+                ?BIN_TO_B58(Signer),
+                ?BIN_TO_B64(Signature)
+            ]}
         end,
-        Queries,
         Signatures
     ).
 
-q_insert_transactions(Block, Queries, Ledger, #state{}) ->
+q_insert_transactions(Block, Ledger, #state{}) ->
     Height = blockchain_block_v1:height(Block),
     Time = blockchain_block_v1:time(Block),
     Txns = blockchain_block_v1:transactions(Block),
     JsonOpts = [{ledger, Ledger}, {chain, blockchain_worker:blockchain()}],
-    lists:foldl(
-        fun(T, Acc) ->
+    be_utils:pmap(
+        fun(T) ->
             Json = #{type := Type} = be_txn:to_json(T, JsonOpts),
-            [
-                {?S_INSERT_TXN, [
-                    Height,
-                    Time,
-                    ?BIN_TO_B64(blockchain_txn:hash(T)),
-                    Type,
-                    Json
-                ]}
-                | Acc
-            ]
+            {?S_INSERT_TXN, [
+                Height,
+                Time,
+                ?BIN_TO_B64(blockchain_txn:hash(T)),
+                Type,
+                Json
+            ]}
         end,
-        Queries,
         Txns
     ).
