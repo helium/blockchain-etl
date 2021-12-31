@@ -77,6 +77,7 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
                 <<"blocks">>,
                 <<"transactions">>,
                 <<"hotspots">>,
+                <<"hotspots_online">>,
                 <<"hotspots_dataonly">>,
                 <<"countries">>,
                 <<"cities">>,
@@ -112,6 +113,11 @@ update(<<"hotspots">>, Current, Block) ->
         false ->
             Current
     end;
+update(<<"hotspots_online">>, _Current, _Block) ->
+    %% We just go ask the source for the actual value on every block since
+    %% status is updated async
+    {ok, _, [{Count}]} = ?EQUERY("select count(*) from gateway_status where online = 'online'", []),
+    Count;
 update(<<"hotspots_dataonly">>, Current, Block) ->
     case
         lists:any(
@@ -144,7 +150,7 @@ update(<<"cities">>, Current, Block) ->
         true ->
             %% We still just go ask the source for the actual value
             {ok, _, [{Count}]} = ?EQUERY(
-                "select count(distinct long_city) "
+                "select count(distinct city_id) "
                 "from gateway_inventory g inner join locations l on g.location = l.location "
                 "where l.location is not null;",
                 []
