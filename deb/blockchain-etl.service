@@ -1,6 +1,8 @@
 [Unit]
 Description=Blockchain ETL application
 After=network.target
+StartLimitInterval=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -14,6 +16,8 @@ Environment=ERL_CRASH_DUMP="/var/data/log/blockchain_etl"
 LimitNOFILE=200000
 LimitNPROC=200000
 Restart=always
+RestartSec=15
+
 
 [Install]
 WantedBy=multi-user.target
