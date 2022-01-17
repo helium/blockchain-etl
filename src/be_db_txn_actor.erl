@@ -29,7 +29,7 @@ prepare_conn(Conn) ->
     MkQueryFun = fun(Rows) ->
         epgsql:parse(
             Conn,
-            ?S_INSERT_ACTOR++"_"++integer_to_list(Rows),
+            ?S_INSERT_ACTOR ++ "_" ++ integer_to_list(Rows),
             [
                 "insert into transaction_actors (block, actor, actor_role, transaction_hash) ",
                 "values  ",
@@ -64,7 +64,8 @@ execute_queries(Conn, Queries) when length(Queries) > 100 ->
     lists:foreach(
         fun
             (Q) when length(Q) == 100 ->
-                {ok, 100} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_100, lists:flatten(Q));
+                %% Can't match 100 in the success case since conflicts are ignored
+                {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_100, lists:flatten(Q));
             (Q) ->
                 execute_queries(Conn, Q)
         end,
@@ -74,7 +75,8 @@ execute_queries(Conn, Queries) when length(Queries) > 10 ->
     lists:foreach(
         fun
             (Q) when length(Q) == 10 ->
-                {ok, 10} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_10, lists:flatten(Q));
+                %% Can't match 100 in the success case since conflicts are ignored
+                {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_10, lists:flatten(Q));
             (Q) ->
                 execute_queries(Conn, Q)
         end,
