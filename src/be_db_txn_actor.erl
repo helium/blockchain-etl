@@ -75,7 +75,7 @@ execute_queries(Conn, Queries) when length(Queries) > 10 ->
     lists:foreach(
         fun
             (Q) when length(Q) == 10 ->
-                %% Can't match 100 in the success case since conflicts are ignored
+                %% Can't match 10 in the success case since conflicts are ignored
                 {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_10, lists:flatten(Q));
             (Q) ->
                 execute_queries(Conn, Q)
