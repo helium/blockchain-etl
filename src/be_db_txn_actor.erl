@@ -353,7 +353,10 @@ to_actors(blockchain_txn_transfer_hotspot_v1, T) ->
 to_actors(blockchain_txn_transfer_hotspot_v2, T) ->
     [
         {"gateway", blockchain_txn_transfer_hotspot_v2:gateway(T)},
-        {"owner", blockchain_txn_transfer_hotspot_v2:new_owner(T)}
+        {"owner", blockchain_txn_transfer_hotspot_v2:new_owner(T)},
+        % the seller (owner) pays the transaction fees, so use it to ensure it
+        % shows up in the sellers activity feed.
+        {"payer", blockchain_txn_transfer_hotspot_v2:owner(T)}
     ];
 to_actors(blockchain_txn_gen_validator_v1, T) ->
     [
