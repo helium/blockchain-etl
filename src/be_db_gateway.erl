@@ -58,7 +58,14 @@ prepare_conn(Conn) ->
 
 init(_) ->
     BaseDir = application:get_env(blockchain, base_dir, "data"),
-    dets:open_file(?MODULE, [{file, filename:join(BaseDir, ?MODULE)}]),
+    DetsFile = filename:join(BaseDir, ?MODULE),
+    case dets:open_file(?MODULE, [{file, DetsFile}]) of
+        {ok, ?MODULE} -> ok;
+        {error, {not_a_dets_file, _}} ->
+            lager:warn("Failed to open dets file; unrecognized type"),
+            ok = file:delete(DetsFile),
+            {ok, ?MODULE} = dets:open_file(?MODULE, [{file, DetsFile}])
+    end,
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
