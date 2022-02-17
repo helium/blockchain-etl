@@ -62,7 +62,7 @@ init(_) ->
     case dets:open_file(?MODULE, [{file, DetsFile}]) of
         {ok, ?MODULE} -> ok;
         {error, {not_a_dets_file, _}} ->
-            lager:warn("Failed to open dets file; unrecognized type"),
+            lager:warning("Failed to open dets file; unrecognized type"),
             ok = file:delete(DetsFile),
             {ok, ?MODULE} = dets:open_file(?MODULE, [{file, DetsFile}])
     end,
