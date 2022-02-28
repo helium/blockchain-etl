@@ -144,16 +144,22 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
         end,
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
     ok = blockchain:save_bin_snapshot(Filename, BinSnap),
+    ok = blockchain:save_compressed_bin_snapshot(Filename, BinSnap), %% function adds ".gz"
     {ok, FileSHA} = blockchain:hash_bin_snapshot(BinSnap),
     Size = blockchain:size_bin_snapshot(BinSnap),
-    LatestBin = jsone:encode(#{
+    LatestMap0 = #{
         height => Height,
         file_size => Size,
         file_hash => base64url:encode(FileSHA),
         hash => base64url:encode(SnapshotHash)
-    }),
-    Latest = filename:join([SnapshotDir, "latest-snap.json"]),
-    ok = file:write_file(Latest, LatestBin).
+    },
+    LatestFilePath = filename:join([SnapshotDir, "latest-snap.json"]),
+    LatestMap = case blockchain:maybe_get_compressed_snapdata(Filename) of
+                    undefined -> LatestMap0;
+                    {ok, CSz, CHash} -> LatestMap0#{compressed_hash => base64url:encode(CHash),
+                                                    compressed_size => CSz }
+                end,
+    ok = file:write_file(LatestFilePath, jsone:encode(LatestMap)).
 
 q_insert_block(Hash, Block, Ledger, State = #state{base_secs = BaseSecs}) ->
     {ElectionEpoch, EpochStart} = blockchain_block_v1:election_info(Block),
