@@ -1,8 +1,11 @@
 -module(be_utils).
 
 -export([pmap/2, pmap/3]).
--export([make_values_list/2]).
--export([split_list/2]).
+-export([
+         make_values_list/2,
+         split_list/2,
+         cached_bin_to_b58/1
+        ]).
 
 split_list(List, N) ->
     RevList = do_split_list(List, N),
@@ -108,3 +111,13 @@ partition_list(L, [H | T], Acc) ->
 cpus() ->
     Ct = erlang:system_info(schedulers_online),
     max(2, ceil(Ct / 2) + 1).
+
+cached_bin_to_b58(B) ->
+    case ets:lookup(b58_cache, B) of
+        [{_, B58}] ->
+            B58;
+        [] ->
+            B58 = list_to_binary(libp2p_crypto:bin_to_b58((B))),
+            ets:insert(b58_cache, {B, B58}),
+            B58
+    end.

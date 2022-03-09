@@ -34,6 +34,7 @@ start_link() ->
 
 init([]) ->
     erlang:system_flag(fullsweep_after, 0),
+    ets:new(b58_cache, [named_table, public]),
 
     ok = libp2p_crypto:set_network(application:get_env(blockchain_etl, network, mainnet)),
 
