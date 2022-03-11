@@ -80,7 +80,7 @@ execute_queries(Conn, Queries) when length(Queries) > 500 ->
                 be_db_follower:maybe_log_duration(actor_500, Start),
                 execute_queries(Conn, Q)
         end,
-        be_utils:split_list(Queries, 100)
+        be_utils:split_list(Queries, 500)
     );
 execute_queries(Conn, Queries) when length(Queries) > 100 ->
     Start = erlang:monotonic_time(millisecond),
