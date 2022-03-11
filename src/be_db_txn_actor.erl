@@ -56,34 +56,46 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
+    StartQueries = erlang:monotonic_time(millisecond),
     Queries = q_insert_block_transaction_actors(Block),
+    be_db_follower:maybe_log_duration(actor_create_queries, StartQueries),
+    StartExec = erlang:monotonic_time(millisecond),
     execute_queries(Conn, Queries),
+    be_db_follower:maybe_log_duration(actor_execute_queries, StartExec),
     {ok, State}.
 
 execute_queries(Conn, Queries) when length(Queries) > 100 ->
+    Start = erlang:monotonic_time(millisecond),
     lists:foreach(
         fun
             (Q) when length(Q) == 100 ->
                 %% Can't match 100 in the success case since conflicts are ignored
                 {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_100, lists:flatten(Q));
             (Q) ->
+                be_db_follower:maybe_log_duration(actor_100, Start),
                 execute_queries(Conn, Q)
         end,
         be_utils:split_list(Queries, 100)
     );
 execute_queries(Conn, Queries) when length(Queries) > 10 ->
+    Start = erlang:monotonic_time(millisecond),
     lists:foreach(
         fun
             (Q) when length(Q) == 10 ->
                 %% Can't match 10 in the success case since conflicts are ignored
                 {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_10, lists:flatten(Q));
             (Q) ->
+                be_db_follower:maybe_log_duration(actor_10, Start),
                 execute_queries(Conn, Q)
         end,
         be_utils:split_list(Queries, 10)
     );
 execute_queries(Conn, Queries) ->
-    ok = ?BATCH_QUERY(Conn, [{?S_INSERT_ACTOR, I} || I <- Queries]).
+    Start = erlang:monotonic_time(millisecond),
+    ok = ?BATCH_QUERY(Conn, [{?S_INSERT_ACTOR, I} || I <- Queries]),
+    be_db_follower:maybe_log_duration(actor_1, Start),
+    ok.
+
 
 q_insert_transaction_actors(Height, Txn) ->
     TxnHash = ?BIN_TO_B64(blockchain_txn:hash(Txn)),

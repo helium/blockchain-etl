@@ -24,33 +24,31 @@ to_json(<<"poc_receipts_v1">>, T, Opts) ->
     {ledger, Ledger} = lists:keyfind(ledger, 1, Opts),
     Json = #{challenger := Challenger, path := Path} = blockchain_txn:to_json(T, Opts),
     UpdateWitness = fun(WitnessJson = #{gateway := Witness}) ->
-        {ok, WitnessInfo} = blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Witness), Ledger),
-        WitnessLoc = blockchain_ledger_gateway_v2:location(WitnessInfo),
+        BinWitness = ?B58_TO_BIN(Witness),
+        {ok, WitnessLoc} = blockchain_ledger_v1:find_gateway_location(BinWitness, Ledger),
+        {ok, WitnessOwner} = blockchain_ledger_v1:find_gateway_owner(BinWitness, Ledger),
         WitnessJson#{
-            owner => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(WitnessInfo)),
+            owner => ?BIN_TO_B58(WitnessOwner),
             location => ?MAYBE_H3(WitnessLoc)
         }
     end,
 
     UpdatePath = fun(PathJson = #{challengee := Challengee, witnesses := Witnesses}) ->
-        {ok, ChallengeeInfo} = blockchain_ledger_v1:find_gateway_info(
-            ?B58_TO_BIN(Challengee),
-            Ledger
-        ),
-        ChallengeeLoc = blockchain_ledger_gateway_v2:location(ChallengeeInfo),
+        BinChallengee = ?B58_TO_BIN(Challengee),
+        {ok, ChallengeeLoc} = blockchain_ledger_v1:find_gateway_location(BinChallengee, Ledger),
+        {ok, ChallengeeOwner} = blockchain_ledger_v1:find_gateway_owner(BinChallengee, Ledger),
         PathJson#{
-            challengee_owner => ?BIN_TO_B58(
-                blockchain_ledger_gateway_v2:owner_address(ChallengeeInfo)
-            ),
+            challengee_owner => ?BIN_TO_B58(ChallengeeOwner),
             challengee_location => ?MAYBE_H3(ChallengeeLoc),
             witnesses => [UpdateWitness(W) || W <- Witnesses]
         }
     end,
 
-    {ok, ChallengerInfo} = blockchain_ledger_v1:find_gateway_info(?B58_TO_BIN(Challenger), Ledger),
-    ChallengerLoc = blockchain_ledger_gateway_v2:location(ChallengerInfo),
+    BinChallenger = ?B58_TO_BIN(Challenger),
+    {ok, ChallengerLoc} = blockchain_ledger_v1:find_gateway_location(BinChallenger, Ledger),
+    {ok, ChallengerOwner} = blockchain_ledger_v1:find_gateway_owner(BinChallenger, Ledger),
     Json#{
-        challenger_owner => ?BIN_TO_B58(blockchain_ledger_gateway_v2:owner_address(ChallengerInfo)),
+        challenger_owner => ?BIN_TO_B58(ChallengerOwner),
         challenger_location => ?MAYBE_H3(ChallengerLoc),
         path => [UpdatePath(E) || E <- Path]
     };
