@@ -18,6 +18,7 @@
 -define(S_INSERT_ACTOR, "insert_actor").
 -define(S_INSERT_ACTOR_10, "insert_actor_10").
 -define(S_INSERT_ACTOR_100, "insert_actor_100").
+-define(S_INSERT_ACTOR_500, "insert_actor_500").
 
 -record(state, {}).
 
@@ -42,10 +43,12 @@ prepare_conn(Conn) ->
     {ok, S1} = MkQueryFun(1),
     {ok, S10} = MkQueryFun(10),
     {ok, S100} = MkQueryFun(100),
+    {ok, S500} = MkQueryFun(500),
     #{
         ?S_INSERT_ACTOR => S1,
         ?S_INSERT_ACTOR_10 => S10,
-        ?S_INSERT_ACTOR_100 => S100
+        ?S_INSERT_ACTOR_100 => S100,
+        ?S_INSERT_ACTOR_500 => S500
     }.
 
 %%
@@ -64,13 +67,30 @@ load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
     be_db_follower:maybe_log_duration(actor_execute_queries, StartExec),
     {ok, State}.
 
+execute_queries(Conn, Queries) when length(Queries) > 500 ->
+    Start = erlang:monotonic_time(millisecond),
+    lists:foreach(
+        fun
+            (Q) when length(Q) == 500 ->
+                %% Can't match 500 in the success case since conflicts are ignored
+                Start1 = erlang:monotonic_time(millisecond),
+                {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_500, lists:flatten(Q)),
+                be_db_follower:maybe_log_duration(actor_500_1, Start1);
+            (Q) ->
+                be_db_follower:maybe_log_duration(actor_500, Start),
+                execute_queries(Conn, Q)
+        end,
+        be_utils:split_list(Queries, 100)
+    );
 execute_queries(Conn, Queries) when length(Queries) > 100 ->
     Start = erlang:monotonic_time(millisecond),
     lists:foreach(
         fun
             (Q) when length(Q) == 100 ->
                 %% Can't match 100 in the success case since conflicts are ignored
-                {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_100, lists:flatten(Q));
+                Start1 = erlang:monotonic_time(millisecond),
+                {ok, _} = ?PREPARED_QUERY(Conn, ?S_INSERT_ACTOR_100, lists:flatten(Q)),
+                be_db_follower:maybe_log_duration(actor_100_1, Start1);
             (Q) ->
                 be_db_follower:maybe_log_duration(actor_100, Start),
                 execute_queries(Conn, Q)
