@@ -28,13 +28,3 @@ steps:
     depends_on: "deb"
     agents:
       queue: "erlang"
-
-  - label: "docker"
-    name: ":whale: build docker"
-    commands:
-      - "git fetch -t"
-      - ".buildkite/scripts/make_docker.sh"
-    if: build.tag != null
-    depends_on: "deb"
-    agents:
-      queue: "erlang"
