@@ -1,8 +1,22 @@
 -module(be_utils).
 
--export([pmap/2, pmap/3]).
+-export([batch_pmap/2, pmap/2]).
 -export([make_values_list/2]).
--export([split_list/2]).
+-export([flatten_once/1, split_list/2]).
+
+append([H | T], L) -> [H | append(T, L)];
+append([], L) -> L.
+
+flatten_once(List) ->
+    flatten_once(List, []).
+flatten_once([H|T], L) ->
+    case lists:all(fun(I) -> is_list(I) end, H) of
+        true ->
+            flatten_once(T, append(H, L));
+        false ->
+            flatten_once(T, [H | L])
+    end;
+flatten_once([], L) -> L.
 
 split_list(List, N) ->
     RevList = do_split_list(List, N),
@@ -41,11 +55,20 @@ make_values_list(NumberElements, NumberRows, Offset) ->
         | make_values_list(NumberElements, NumberRows - 1, Offset + NumberElements)
     ].
 
+batch_pmap(F, L) ->
+    Width = cpus(),
+    Results = pmap(F, L, Width, true),
+    %% If you didn't flatten_once here you'd have a list of lists equal to the # of partitions created
+    %% in pmap. You could then send those lists as individual copies to the DB but if one failed it'd
+    %% result in a partial upload to the DB. Instead this creates a single copylist from the results.
+    flatten_once(Results).
+
 pmap(F, L) ->
     Width = cpus(),
-    pmap(F, L, Width).
+    Results = pmap(F, L, Width, false),
+    lists:flatten(Results).
 
-pmap(F, L, Width) ->
+pmap(F, L, Width, Batch) ->
     Parent = self(),
     Len = length(L),
     Min = floor(Len / Width),
@@ -59,11 +82,22 @@ pmap(F, L, Width) ->
             (IL, {N, Workers}) ->
                 P = spawn_opt(
                     fun() ->
-                        try lists:map(F, IL) of
+                        process_flag(priority, high),
+                        Fun = case Batch of
+                            true ->
+                                F(IL);
+                            _ ->
+                                lists:map(F, IL)
+                        end,
+                        try Fun of
                             Res ->
                                 Parent ! {pmap, N, Res}
                         catch
                             What:Why ->
+                                lager:info("Pmap what: ~p why: ~p", [What, Why]),
+                                Parent ! {pmap_crash, What, Why};
+                            What:Why:Stack ->
+                                lager:info("Pmap what: ~p why: ~p stack: ~p", [What, Why, Stack]),
                                 Parent ! {pmap_crash, What, Why}
                         end
                     end,
@@ -87,7 +121,7 @@ pmap(F, L, Width) ->
      || _ <- lists:seq(1, St)
     ],
     {_, L3} = lists:unzip(lists:keysort(1, L2)),
-    lists:flatten(L3).
+    L3.
 
 flush_pmap_messages() ->
     receive

@@ -15,6 +15,7 @@
          equery/2,
          prepared_query/2, prepared_query/3,
          batch_query/1, batch_query/2,
+         copy_list/2,
          with_transaction/1, with_connection/1]).
 
 -record(state,
@@ -72,6 +73,41 @@ batch_query({Stmts, Conn}, Batch) ->
             throw({error, Errors})
     end.
 
+%% Config - is a tuple consisting of the following;
+%%          TableString in the following format "table_copied_to (col1, col2, ... colN)"
+%%          Format is a list of epgsql_type()'s [text, int4, ... type] https://github.com/epgsql/epgsql/tree/devel/src/datatypes
+%% The Tablestring columns (col1, col2, ... colN) need to match the format list created out of epgsql_type()'s
+%% List   - is a list of lists that represent the data as rows in the table being copied to;
+%%          [ [Row1], [Row2], ... [RowN] ], Row1 = [col1_value, col2_value, ... colN_value]
+-spec copy_list(Config::{TableString::string, Format::list()}, List::list()) -> ok | {error, list()}.
+copy_list(Config, List) ->
+    poolboy:transaction(?DB_POOL,
+                        fun(Worker) ->
+                                gen_server:call(Worker, {copy_list, Config, List}, infinity)
+                        end).
+
+-spec copy_list({TableString::string, Format::list()}, List::list(), Conn::epgsql:connection()) -> ok.
+copy_list({TableString, Format}, List, Conn) ->
+    case epgsql:copy_from_stdin(
+        Conn,
+        "COPY " ++ TableString ++ " FROM STDIN WITH (FORMAT binary)",
+        {binary, Format}
+    ) of
+        {ok, _} ->
+            case epgsql:copy_send_rows(
+                Conn,
+                List,
+                infinity
+            ) of
+                ok ->
+                    epgsql:copy_done(Conn);
+                {error, Error} ->
+                    throw({error, Error})
+            end;
+        {error, Error} ->
+            throw({error, Error})
+    end.
+
 -spec with_transaction(fun((epgsql:connection()) -> Reply)) -> Reply | {rollback, any()} when
       Reply::any().
 with_transaction(Fun) ->
@@ -116,6 +152,8 @@ handle_call({prepared_query, Name, Params}, _From, #state{db_conn=Conn, prepared
     {reply, prepared_query({Stmts, Conn}, Name, Params), State};
 handle_call({batch_query, Batch}, _From, #state{db_conn=Conn, prepared_statements=Stmts}=State) ->
     {reply, batch_query({Stmts, Conn}, Batch), State};
+handle_call({copy_list, Config, List}, _From, #state{db_conn=Conn}=State) ->
+    {reply, copy_list(Config, List, Conn), State};
 handle_call({with_transaction, Fun}, _From, #state{db_conn=Conn, prepared_statements=Stmts}=State) ->
     TransactionFun = fun(_) ->
                              Fun({Stmts, Conn})

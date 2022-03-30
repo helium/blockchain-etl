@@ -19,6 +19,8 @@
 -define(S_INSERT_ACTOR_10, "insert_actor_10").
 -define(S_INSERT_ACTOR_100, "insert_actor_100").
 
+-define(COPY_ACTOR_CONFIG, {"transaction_actors (actor, actor_role, transaction_hash, block)", [text, text, text, int8]}).
+
 -record(state, {}).
 
 %%
@@ -56,8 +58,9 @@ init(_) ->
     {ok, #state{}}.
 
 load_block(Conn, _Hash, Block, _Sync, _Ledger, State = #state{}) ->
-    Queries = q_insert_block_transaction_actors(Block),
-    execute_queries(Conn, Queries),
+    % Queries = q_insert_block_transaction_actors(Block),
+    % execute_queries(Conn, Queries),
+    q_copy_transaction_actors(Block),
     {ok, State}.
 
 execute_queries(Conn, Queries) when length(Queries) > 100 ->
@@ -103,6 +106,17 @@ q_insert_block_transaction_actors(Block) ->
         end,
         Txns
     ).
+
+q_copy_transaction_actors(Block) ->
+    Height = blockchain_block_v1:height(Block),
+    Txns = blockchain_block_v1:transactions(Block),
+    CopyList = be_utils:batch_pmap(
+        fun(L) ->
+            be_txn:actors_to_copy_list(Height, L)
+        end,
+        Txns
+    ),
+    ?COPY_LIST(?COPY_ACTOR_CONFIG, CopyList).
 
 -spec to_actors(blockchain_txn:txn()) -> [{string(), libp2p_crypto:pubkey_bin()}].
 to_actors(T) ->
