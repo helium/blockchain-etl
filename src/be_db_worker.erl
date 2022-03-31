@@ -102,9 +102,11 @@ copy_list({TableString, Format}, List, Conn) ->
                 ok ->
                     epgsql:copy_done(Conn);
                 {error, Error} ->
+                    lager:error("~p", [{error, Error}]),
                     throw({error, Error})
             end;
         {error, Error} ->
+            lager:error("~p", [{error, Error}]),
             throw({error, Error})
     end.
 
