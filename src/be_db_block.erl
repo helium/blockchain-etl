@@ -143,8 +143,7 @@ maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
             Other -> Other
         end,
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
-    %% ok = blockchain:save_bin_snapshot(Filename, BinSnap),
-    ok = blockchain:save_compressed_bin_snapshot(Filename, BinSnap), %% function adds ".gz"
+    ok = blockchain:save_bin_snapshots(Filename, BinSnap),
     {ok, FileSHA} = blockchain:hash_bin_snapshot(BinSnap),
     Size = blockchain:size_bin_snapshot(BinSnap),
     LatestMap0 = #{
