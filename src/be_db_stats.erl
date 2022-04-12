@@ -152,7 +152,7 @@ update(<<"cities">>, Current, Block) ->
             {ok, _, [{Count}]} = ?EQUERY(
                 "select count(distinct city_id) "
                 "from gateway_inventory g inner join locations l on g.location = l.location "
-                "where l.location is not null;",
+                "where g.location is not null;",
                 []
             ),
             Count;
@@ -174,7 +174,7 @@ update(<<"countries">>, Current, Block) ->
             {ok, _, [{Count}]} = ?EQUERY(
                 "select count(distinct long_country) "
                 "from gateway_inventory g inner join locations l on g.location = l.location "
-                "where l.location is not null;",
+                "where g.location is not null;",
                 []
             ),
             Count;
