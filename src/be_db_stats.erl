@@ -192,7 +192,10 @@ update(<<"consensus_groups">>, Current, Block) ->
 update(<<"challenges">>, Current, Block) ->
     Txns = lists:filter(
         fun(Txn) ->
-            blockchain_txn:type(Txn) == blockchain_txn_poc_receipts_v1
+            TxnType = blockchain_txn:type(Txn),
+            TxnType == blockchain_txn_poc_receipts_v1 orelse
+                TxnType ==
+                    blockchain_txn_poc_receipts_v2
         end,
         blockchain_block:transactions(Block)
     ),
