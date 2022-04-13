@@ -23,7 +23,8 @@
     "insert into transaction_actors ",
     "(select fields->>'challenger' as actor, 'challenger' as actor_role, hash as transaction_hash, block ",
     " from transactions ",
-    " where type = 'poc_receipts_v1' and block between $1 and $2) ",
+    " where type in ('poc_receipts_v1', 'poc_receipts_v2') ",
+    " and block between $1 and $2) ",
     "on conflict do nothing"
 ]).
 

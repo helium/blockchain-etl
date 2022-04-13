@@ -223,6 +223,32 @@ to_actors(blockchain_txn_poc_receipts_v1, T) ->
     lists:usort(Challengees) ++
         lists:usort(Witnesses) ++
         [{"challenger", blockchain_txn_poc_receipts_v1:challenger(T)}];
+to_actors(blockchain_txn_poc_receipts_v2, T) ->
+    ToActors = fun
+        (undefined, Acc0) ->
+            Acc0;
+        (Elem, {ChallengeeAcc0, WitnessAcc0}) ->
+            ChallengeeAcc = [
+                {"challengee", blockchain_poc_path_element_v1:challengee(Elem)}
+                | ChallengeeAcc0
+            ],
+            WitnessAcc = lists:foldl(
+                fun(W, WAcc) ->
+                    [{"witness", blockchain_poc_witness_v1:gateway(W)} | WAcc]
+                end,
+                WitnessAcc0,
+                blockchain_poc_path_element_v1:witnesses(Elem)
+            ),
+            {ChallengeeAcc, WitnessAcc}
+    end,
+    {Challengees, Witnesses} = lists:foldl(
+        ToActors,
+        {[], []},
+        blockchain_txn_poc_receipts_v2:path(T)
+    ),
+    lists:usort(Challengees) ++
+        lists:usort(Witnesses) ++
+        [{"challenger", blockchain_txn_poc_receipts_v2:challenger(T)}];
 to_actors(blockchain_txn_vars_v1, _T) ->
     [];
 to_actors(blockchain_txn_rewards_v1, T) ->
