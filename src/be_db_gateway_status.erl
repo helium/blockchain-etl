@@ -73,11 +73,11 @@ prepare_conn(Conn) ->
             [
                 "select g.address from gateway_inventory g",
                 "  left join gateway_status s on s.address = g.address ",
-                "where updated_at ",
+                "where coalesce(updated_at, to_timestamp(0)) ",
                 "    < (now() - '",
                 integer_to_list(?STATUS_REFRESH_MINS),
                 " minute'::interval) ",
-                "order by updated_at ",
+                "order by coalesce(updated_at, to_timestamp(0)) ",
                 "limit $1"
             ],
             []
