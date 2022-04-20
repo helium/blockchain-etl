@@ -16,8 +16,7 @@
 -export([prepare_conn/1]).
 %% online status utilities
 -export([
-    request_rate/0,
-    peer_online/1
+    request_rate/0
 ]).
 
 -export([adjust_request_rate/0]).
@@ -39,16 +38,13 @@
 -define(MAX_REQUEST_RATE, 200).
 %% A peer is recently added if it's (first) add_gateway transaction is in the
 %% last "48 hours" in blocks (60 blocks per hour assumed)
--define(PEER_RECENTLY_ADDED_BLOCKS, 60 * 48).
+-define(HOTSPOT_RECENTLY_ADDED_BLOCKS, 60 * 48).
+% 36 hours of blocks considered for online status
+-define(HOTSPOT_OFFLINE_BLOCKS, 2160).
 
 %%
 %% Utility API
 %%
-
-peer_online(Address) ->
-    PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
-    Ledger = blockchain:ledger(),
-    peer_online(Address, PeerBook, Ledger).
 
 -spec request_rate() -> pos_integer().
 request_rate() ->
@@ -71,7 +67,7 @@ prepare_conn(Conn) ->
             Conn,
             ?S_STATUS_UNKNOWN_LIST,
             [
-                "select g.address from gateway_inventory g",
+                "select g.address, g.first_block, g.last_block from gateway_inventory g",
                 "  left join gateway_status s on s.address = g.address ",
                 "where coalesce(updated_at, to_timestamp(0)) ",
                 "    < (now() - '",
@@ -179,7 +175,7 @@ handle_info(check_status, State = #state{requests = Requests}) ->
 
     %% Ignore already outstanding requests
     FilteredResults = lists:filter(
-        fun({A}) ->
+        fun({A, _, _}) ->
             length(ets:lookup(Requests, A)) == 0
         end,
         Results
@@ -188,8 +184,8 @@ handle_info(check_status, State = #state{requests = Requests}) ->
     PeerBook = libp2p_swarm:peerbook(blockchain_swarm:swarm()),
     Ledger = blockchain:ledger(),
     lists:foreach(
-        fun({A}) ->
-            request_status(A, PeerBook, Ledger, Requests)
+        fun({A, FirstBlock, LastBlock}) ->
+            request_status(A, FirstBlock, LastBlock, PeerBook, Ledger, Requests)
         end,
         FilteredResults
     ),
@@ -205,12 +201,12 @@ calculate_request_rate() ->
     {ok, _, [{GWCount}]} = ?EQUERY("select count(*) from gateway_inventory", []),
     min(?MAX_REQUEST_RATE, max(1, round(GWCount / (?STATUS_REFRESH_MINS * 50)))).
 
-request_status(B58Address, PeerBook, Ledger, Requests) ->
+request_status(B58Address, FirstBlock, LastBlock, PeerBook, Ledger, Requests) ->
     Request = fun() ->
         try
             true = ets:insert_new(Requests, {B58Address, self()}),
             Address = ?B58_TO_BIN(B58Address),
-            Online = peer_online(Address),
+            Online = peer_online(FirstBlock, LastBlock, Ledger),
             PoCInterval = blockchain_utils:challenge_interval(Ledger),
             LastChallenge = be_peer_status:peer_last_challenge(Address, Ledger),
             Block = be_peer_status:peer_metadata(<<"height">>, Address, PeerBook),
@@ -246,34 +242,31 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
 %%
 
 -spec peer_online(
-    libp2p_crypto:pubkey_bin(),
-    libp2p_peerbook:peerbook(),
+    FirstBlock :: pos_integer(),
+    LastBlock :: pos_integer(),
     blockchain:ledger()
 ) ->
     binary().
-peer_online(Address, PeerBook, Ledger) ->
-    Ledger = blockchain:ledger(),
-    case peer_recently_added(Address, Ledger) of
+peer_online(FirstBlock, LastBlock, Ledger) ->
+    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
+    case peer_recently_added(FirstBlock, Height) of
         true ->
             <<"online">>;
         false ->
-            case be_peer_status:peer_recent_challenger(Address, Ledger) of
-                true ->
-                    <<"online">>;
-                false ->
-                    case be_peer_status:peer_stale(Address, PeerBook, true) of
-                        true -> <<"offline">>;
-                        false -> <<"online">>
-                    end
+            case Height - LastBlock >= ?HOTSPOT_OFFLINE_BLOCKS of
+                true -> <<"online">>;
+                _ -> <<"offline">>
             end
     end.
 
--spec peer_recently_added(libp2p_crypto:pubkey_bin(), blockchain:ledger()) -> boolean().
-peer_recently_added(Address, Ledger) ->
-    {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
-    {ok, _, [{AddedHeight}]} = ?PREPARED_QUERY(?S_PEER_ADDED, [?BIN_TO_B58(Address)]),
-    case Height - AddedHeight of
-        V when V =< ?PEER_RECENTLY_ADDED_BLOCKS ->
+-spec peer_recently_added(
+    FirstBlock :: pos_integer(),
+    ChainHeight :: pos_integer()
+) ->
+    boolean().
+peer_recently_added(FirstBlock, Height) ->
+    case Height - FirstBlock of
+        V when V =< ?HOTSPOT_RECENTLY_ADDED_BLOCKS ->
             true;
         _ ->
             false
