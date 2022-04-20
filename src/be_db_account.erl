@@ -103,7 +103,7 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     %% transaction actors
     StartActor = erlang:monotonic_time(millisecond),
     BlockAccounts = be_db_follower:fold_actors(
-        ["payer", "payee"],
+        ["payer", "payee", "owner"],
         fun({_Role, Key}, Acc) ->
             Account = maps:get(Key, Acc, #account{address = Key}),
             maps:put(Key, UpdateAccount(Account), Acc)
