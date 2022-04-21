@@ -210,7 +210,7 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
         try
             true = ets:insert_new(Requests, {B58Address, self()}),
             Address = ?B58_TO_BIN(B58Address),
-            Online = peer_online(Address),
+            Online = peer_online(Address, PeerBook, Ledger),
             PoCInterval = blockchain_utils:challenge_interval(Ledger),
             LastChallenge = be_peer_status:peer_last_challenge(Address, Ledger),
             Block = be_peer_status:peer_metadata(<<"height">>, Address, PeerBook),
@@ -252,7 +252,6 @@ request_status(B58Address, PeerBook, Ledger, Requests) ->
 ) ->
     binary().
 peer_online(Address, PeerBook, Ledger) ->
-    Ledger = blockchain:ledger(),
     case peer_recently_added(Address, Ledger) of
         true ->
             <<"online">>;
