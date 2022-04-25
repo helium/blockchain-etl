@@ -17,6 +17,7 @@
 -record(state, {}).
 
 -define(S_INSERT_GATEWAY, "insert_gateway").
+-define(S_UNHANDLED_GATEWAY_LOOKUP, "lookup_unhandled_gateway").
 
 %%
 %% be_db_worker
@@ -47,9 +48,17 @@ prepare_conn(Conn) ->
             ],
             []
         ),
+    {ok, S2} =
+        epgsql:parse(
+            Conn,
+            ?S_UNHANDLED_GATEWAY_LOOKUP,
+            ["select reward_scale from gateway_inventory where address = $1"],
+            []
+        ),
 
     #{
-        ?S_INSERT_GATEWAY => S1
+        ?S_INSERT_GATEWAY => S1,
+        ?S_UNHANDLED_GATEWAY_LOOKUP => S2
     }.
 
 %%
@@ -85,6 +94,14 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     ),
     be_db_follower:maybe_log_duration(db_gateway_actor_fold, StartActor),
 
+    BlockHeight = blockchain_block_v1:height(Block),
+    BlockTime = blockchain_block_v1:time(Block),
+    ChangeType =
+        case block_contains_election(Block) of
+            true -> election;
+            false -> block
+        end,
+
     %% Merge in any gateways that are indirectly updated by the ledger and stashed
     %% in the module ets table
     StartUnhandled = erlang:monotonic_time(millisecond),
@@ -92,12 +109,12 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
         dets:foldl(
             fun
                 ({Key}, Acc) ->
-                    case maps:is_key(Key, Acc) of
+                    case should_process_unhandled(Key, Acc, ChangeType, Ledger) of
                         true ->
-                            Acc;
-                        false ->
                             lager:info("processing unhandled gateway ~p", [?BIN_TO_B58(Key)]),
-                            maps:put(Key, true, Acc)
+                            maps:put(Key, true, Acc);
+                        false ->
+                            Acc
                     end;
                 (_, Acc) ->
                     Acc
@@ -108,13 +125,6 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     be_db_follower:maybe_log_duration(db_gateway_unhandled_fold, StartUnhandled),
 
     StartMkQuery = erlang:monotonic_time(millisecond),
-    BlockHeight = blockchain_block_v1:height(Block),
-    BlockTime = blockchain_block_v1:time(Block),
-    ChangeType =
-        case block_contains_election(Block) of
-            true -> election;
-            false -> block
-        end,
     Queries = maps:fold(
         fun(Key, _Value, Acc) ->
             case blockchain_ledger_v1:find_gateway_info(Key, Ledger) of
@@ -145,28 +155,58 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     dets:delete_all_objects(?MODULE),
     {ok, State}.
 
+should_process_unhandled(Address, Cache, ChangeType, Ledger) ->
+    case maps:is_key(Address, Cache) of
+        true ->
+            false;
+        false ->
+            case blockchain_ledger_v1:find_gateway_info(Address, Ledger) of
+                {ok, GW} ->
+                    B58Address = ?BIN_TO_B58(Address),
+                    LedgerMode = blockchain_ledger_gateway_v2:mode(GW),
+                    LedgerLocation = blockchain_ledger_gateway_v2:location(GW),
+                    {ok, _, [{RewardScale}]} = ?PREPARED_QUERY(
+                        ?S_UNHANDLED_GATEWAY_LOOKUP,
+                        [B58Address]
+                    ),
+                    % Technically only reward scale is changed in the ledger
+                    % without gateway tagged data in a block
+                    case
+                        RewardScale ==
+                            reward_scale(LedgerLocation, ChangeType, LedgerMode, Ledger)
+                    of
+                        true -> false;
+                        _ -> true
+                    end;
+                _ ->
+                    false
+            end
+    end.
+
+reward_scale(Location, ChangeType, Mode, Ledger) ->
+    case ChangeType of
+        block ->
+            undefined;
+        election ->
+            ?MAYBE_FN(
+                fun(L) ->
+                    %% Only insert scale value for "full | light" gateways
+                    case {Mode, blockchain_hex:scale(L, Ledger)} of
+                        {full, {ok, V}} -> blockchain_utils:normalize_float(V);
+                        {light, {ok, V}} -> blockchain_utils:normalize_float(V);
+                        _ -> undefined
+                    end
+                end,
+                Location
+            )
+    end.
+
 q_insert_gateway(BlockHeight, BlockTime, Address, GW, ChangeType, Ledger) ->
     B58Address = ?BIN_TO_B58(Address),
     {ok, Name} = erl_angry_purple_tiger:animal_name(B58Address),
     Mode = blockchain_ledger_gateway_v2:mode(GW),
     Location = blockchain_ledger_gateway_v2:location(GW),
-    RewardScale =
-        case ChangeType of
-            block ->
-                undefined;
-            election ->
-                ?MAYBE_FN(
-                    fun(L) ->
-                        %% Only insert scale value for "full | light" gateways
-                        case {Mode, blockchain_hex:scale(L, Ledger)} of
-                            {full, {ok, V}} -> blockchain_utils:normalize_float(V);
-                            {light, {ok, V}} -> blockchain_utils:normalize_float(V);
-                            _ -> undefined
-                        end
-                    end,
-                    Location
-                )
-        end,
+    RewardScale = reward_scale(Location, ChangeType, Mode, Ledger),
     Params = [
         BlockHeight,
         BlockTime,
