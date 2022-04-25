@@ -67,7 +67,7 @@ prepare_conn(Conn) ->
             Conn,
             ?S_STATUS_UNKNOWN_LIST,
             [
-                "select g.address, g.first_block, (select max(block) from transaction_actors a where a.address = g.address) as last_block from gateway_inventory g",
+                "select g.address, g.first_block, g.last_block from gateway_inventory g",
                 "  left join gateway_status s on s.address = g.address ",
                 "where coalesce(updated_at, to_timestamp(0)) ",
                 "    < (now() - '",
