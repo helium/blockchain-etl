@@ -253,7 +253,7 @@ peer_online(FirstBlock, LastBlock, Ledger) ->
         true ->
             <<"online">>;
         false ->
-            case Height - LastBlock >= ?HOTSPOT_OFFLINE_BLOCKS of
+            case Height - LastBlock =< ?HOTSPOT_OFFLINE_BLOCKS of
                 true -> <<"online">>;
                 _ -> <<"offline">>
             end
