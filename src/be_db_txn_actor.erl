@@ -248,7 +248,10 @@ to_actors(blockchain_txn_poc_receipts_v2, T) ->
     ),
     lists:usort(Challengees) ++
         lists:usort(Witnesses) ++
-        [{"challenger", blockchain_txn_poc_receipts_v2:challenger(T)}];
+        [
+            {"challenger", blockchain_txn_poc_receipts_v2:challenger(T)},
+            {"validator", blockchain_txn_poc_receipts_v2:challenger(T)}
+        ];
 to_actors(blockchain_txn_vars_v1, _T) ->
     [];
 to_actors(blockchain_txn_rewards_v1, T) ->
