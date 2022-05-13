@@ -139,11 +139,11 @@ maybe_write_snapshot(_, <<>>, _, _Chain) ->
 maybe_write_snapshot(Height, SnapshotHash, SnapshotDir, Chain) ->
     {ok, BinSnap} =
         case blockchain:get_snapshot(SnapshotHash, Chain) of
-            {error, not_found} -> blockchain:get_snapshot(Height, Chain);
+            {error, NF} when NF =:= not_found; NF =:= file_not_found -> blockchain:get_snapshot(Height, Chain);
             Other -> Other
         end,
     Filename = filename:join([SnapshotDir, io_lib:format("snap-~p", [Height])]),
-    ok = blockchain:save_bin_snapshots(Filename, BinSnap),
+    ok = blockchain:save_compressed_bin_snapshot(Filename, BinSnap),
     {ok, Sz, FHash} = blockchain:maybe_get_compressed_snapdata(Filename),
     LatestMap = #{
         height => Height,
