@@ -194,9 +194,9 @@ reward_scale(Location, ChangeType, Mode, Ledger) ->
                     case {Mode, blockchain_hex:scale(L, Ledger)} of
                         {full, {ok, V}} -> blockchain_utils:normalize_float(V);
                         {light, {ok, V}} -> blockchain_utils:normalize_float(V);
-                        {error, {failed_scale_calc, L2, LedgerHeight}} ->
+                        {M, {error, {failed_scale_calc, L2, LedgerHeight}}} ->
                             %% just log for now
-                            lager:error("failed_scale_calc, location: ~p, ledger_height: ~p", [L2, LedgerHeight]),
+                            lager:error("failed_scale_calc, mode: ~p, location: ~p, ledger_height: ~p", [M, L2, LedgerHeight]),
                             undefined;
                         _ -> undefined
                     end
