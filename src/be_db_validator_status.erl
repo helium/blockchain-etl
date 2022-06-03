@@ -90,14 +90,16 @@ prepare_conn(Conn) ->
                 " online, ",
                 " block, ",
                 " peer_timestamp, ",
-                " listen_addrs ",
-                ") values ($1, $2, $3, to_timestamp($4::double precision / 1000), $5) ",
+                " listen_addrs, ",
+                " grpc_addr "
+                ") values ($1, $2, $3, to_timestamp($4::double precision / 1000), $5, $6) ",
                 "on conflict (address) do update ",
                 "set ",
                 "    online = EXCLUDED.online,",
                 "    block = coalesce(EXCLUDED.block, status.block),"
                 "    peer_timestamp = coalesce(EXCLUDED.peer_timestamp, status.peer_timestamp),",
-                "    listen_addrs = coalesce(EXCLUDED.listen_addrs, status.listen_addrs);"
+                "    listen_addrs = coalesce(EXCLUDED.listen_addrs, status.listen_addrs),"
+                "    grpc_addr = coalesce(EXCLUDED.grpc_addr, status.grpc_addr);"
             ],
             []
         ),
@@ -195,6 +197,7 @@ request_status(B58Address, PeerBook, _Ledger, Requests) ->
             Block = be_peer_status:peer_metadata(<<"height">>, Address, PeerBook),
             PeerTime = be_peer_status:peer_time(Address, PeerBook),
             ListenAddrs = be_peer_status:peer_listen_addrs(Address, PeerBook),
+            GrpcAddr = be_peer_status:peer_metadata(<<"grpc_address">>, Address, PeerBook),
 
             ?PREPARED_QUERY(
                 ?S_STATUS_INSERT,
@@ -203,7 +206,8 @@ request_status(B58Address, PeerBook, _Ledger, Requests) ->
                     Online,
                     Block,
                     PeerTime,
-                    ListenAddrs
+                    ListenAddrs,
+                    GrpcAddr
                 ]
             )
         catch
