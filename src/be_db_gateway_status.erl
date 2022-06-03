@@ -2,6 +2,7 @@
 
 -include("be_db_worker.hrl").
 -include("be_db_follower.hrl").
+-include_lib("blockchain/include/blockchain_vars.hrl").
 
 -behaviour(gen_server).
 
@@ -39,8 +40,10 @@
 %% A peer is recently added if it's (first) add_gateway transaction is in the
 %% last "48 hours" in blocks (60 blocks per hour assumed)
 -define(HOTSPOT_RECENTLY_ADDED_BLOCKS, 60 * 48).
-% 36 hours of blocks considered for online status
--define(HOTSPOT_OFFLINE_BLOCKS, 2160).
+% default number of blocks considered for online status.
+% hip17_interactivity_blocks is looked up but this is used if that variable is
+% not found
+-define(DEFAULT_HOTSPOT_INACTIVE_BLOCKS, 3600).
 
 %%
 %% Utility API
@@ -249,11 +252,16 @@ request_status(B58Address, FirstBlock, LastBlock, PeerBook, Ledger, Requests) ->
     binary().
 peer_online(FirstBlock, LastBlock, Ledger) ->
     {ok, Height} = blockchain_ledger_v1:current_height(Ledger),
+    InactiveBlocks =
+        case blockchain:config(?hip17_interactivity_blocks, Ledger) of
+            {ok, N} -> N;
+            _ -> ?DEFAULT_HOTSPOT_INACTIVE_BLOCKS
+        end,
     case peer_recently_added(FirstBlock, Height) of
         true ->
             <<"online">>;
         false ->
-            case Height - LastBlock =< ?HOTSPOT_OFFLINE_BLOCKS of
+            case Height - LastBlock =< InactiveBlocks of
                 true -> <<"online">>;
                 _ -> <<"offline">>
             end
