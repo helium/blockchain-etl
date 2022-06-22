@@ -1,4 +1,4 @@
-FROM erlang:22.3.2-alpine as deps-compiler
+FROM erlang:24.3.4-alpine as deps-compiler
 
 RUN apk add --no-cache --update \
     git tar build-base linux-headers autoconf automake libtool pkgconfig \
