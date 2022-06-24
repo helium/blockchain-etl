@@ -67,4 +67,4 @@ console:
 update-genesis:
 	curl -o priv/genesis.mainnet https://snapshots.helium.wtf/genesis.mainnet
 	curl -o priv/genesis.testnet https://snapshots.helium.wtf/genesis.testnet
-	curl -o priv/genesis.devnet https://snapshots.helium/wtf/genesis.devnet
+	curl -o priv/genesis.devnet https://snapshots.helium.wtf/genesis.devnet
