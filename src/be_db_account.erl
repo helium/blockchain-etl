@@ -2,6 +2,7 @@
 
 -include("be_db_follower.hrl").
 -include("be_db_worker.hrl").
+-include_lib("blockchain/include/blockchain_vars.hrl").
 
 -behavior(be_db_worker).
 -behavior(be_db_follower).
@@ -21,6 +22,8 @@
     security_nonce = 0,
     balance = 0,
     staked_balance = 0,
+    mobile_balance = 0,
+    iot_balance = 0,
     nonce = 0
 }).
 
@@ -38,7 +41,7 @@ prepare_conn(Conn) ->
             Conn,
             ?S_ACCOUNT_INSERT,
             [
-                "insert into accounts (block, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, staked_balance, nonce) select ",
+                "insert into accounts (block, address, dc_balance, dc_nonce, security_balance, security_nonce, balance, staked_balance, mobile_balance, iot_balance, nonce) select ",
                 "$1 as block, ",
                 "$2 as address, ",
                 "$3 as dc_balance, ",
@@ -47,7 +50,9 @@ prepare_conn(Conn) ->
                 "$6 as security_nonce, ",
                 "$7 as balance, ",
                 "$8 as staked_balance, ",
-                "$9 as nonce"
+                "$9 as mobile_balance, ",
+                "$10 as iot_balance, ",
+                "$11 as nonce"
             ],
             []
         ),
@@ -82,6 +87,11 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
     ),
     be_db_follower:maybe_log_duration(db_account_staked_make, StartStaked),
 
+    {ok, TokenVersion} =
+        case blockchain_ledger_v1:config(?token_version, Ledger) of
+            {ok, N} -> {ok, N};
+            _ -> {ok, 1}
+        end,
     UpdateAccount = fun(Account) ->
         lists:foldl(
             fun
@@ -92,9 +102,9 @@ load_block(Conn, _Hash, Block, _Sync, Ledger, State = #state{}) ->
             end,
             Account,
             [
-                fun update_securities/2,
+                {fun update_securities/3, TokenVersion},
                 fun update_data_credits/2,
-                fun update_balance/2,
+                {fun update_balance/3, TokenVersion},
                 {fun update_staked_balance/3, Staked}
             ]
         )
@@ -162,11 +172,13 @@ q_insert_account(BlockHeight, Acc = #account{}) ->
         Acc#account.security_nonce,
         Acc#account.balance,
         Acc#account.staked_balance,
+        Acc#account.mobile_balance,
+        Acc#account.iot_balance,
         Acc#account.nonce
     ],
     {?S_ACCOUNT_INSERT, Params}.
 
-update_securities(Account, Ledger) ->
+update_securities(Account, _TokenVersion = 1, Ledger) ->
     case
         blockchain_ledger_v1:find_security_entry(
             Account#account.address,
@@ -180,7 +192,9 @@ update_securities(Account, Ledger) ->
             };
         _ ->
             Account
-    end.
+    end;
+update_securities(Account, _TokenVersion, _Ledger) ->
+    Account.
 
 update_data_credits(Account, Ledger) ->
     case blockchain_ledger_v1:find_dc_entry(Account#account.address, Ledger) of
@@ -193,12 +207,20 @@ update_data_credits(Account, Ledger) ->
             Account
     end.
 
-update_balance(Account, Ledger) ->
+update_balance(Account, TokenVersion, Ledger) ->
     case blockchain_ledger_v1:find_entry(Account#account.address, Ledger) of
-        {ok, Entry} ->
+        {ok, Entry} when TokenVersion == 1 ->
             Account#account{
                 balance = blockchain_ledger_entry_v1:balance(Entry),
                 nonce = blockchain_ledger_entry_v1:nonce(Entry)
+            };
+        {ok, Entry} when TokenVersion == 2 ->
+            Account#account{
+                mobile_balance = blockchain_ledger_entry_v2:balance(Entry, mobile),
+                iot_balance = blockchain_ledger_entry_v2:balance(Entry, iot),
+                security_balance = blockchain_ledger_entry_v2:balance(Entry, hst),
+                balance = blockchain_ledger_entry_v2:balance(Entry),
+                nonce = blockchain_ledger_entry_v2:nonce(Entry)
             };
         _ ->
             Account
