@@ -38,7 +38,7 @@ typecheck:
 doc:
 	$(REBAR) edoc
 
-release:
+release: update-genesis
 	$(REBAR) as $(PROFILE) do release
 
 migrations: stop
