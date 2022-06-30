@@ -31,7 +31,7 @@ RUN mkdir -p /opt/docker
 RUN tar -zxvf _build/docker_etl/rel/*/*.tar.gz -C /opt/docker
 RUN mkdir -p /opt/docker/update
 
-FROM alpine as runner
+FROM alpine:3.15.4 as runner
 
 RUN apk add --no-cache --update ncurses dbus gmp libsodium gcc
 RUN ulimit -n 64000
