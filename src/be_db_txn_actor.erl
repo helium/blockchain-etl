@@ -433,4 +433,16 @@ to_actors(blockchain_txn_consensus_group_failure_v1, T) ->
         {"consensus_failure_failed_member", M}
      || M <- blockchain_txn_consensus_group_failure_v1:failed_members(T)
     ],
-    Members ++ FailedMembers.
+    Members ++ FailedMembers;
+to_actors(blockchain_txn_add_subnetwork_v1, T) ->
+    RewardServers = [
+        {"reward_server", M}
+     || M <- blockchain_txn_add_subnetwork_v1:reward_server_keys(T)
+    ],
+    SubnetworkKey = [{"subnetwork_key", blockchain_txn_add_subnetwork_v1:subnetwork_key(T)}],
+    SubnetworkKey ++ RewardServers;
+to_actors(blockchain_txn_subnetwork_rewards_v1, T) ->
+    lists:map(
+        fun(R) -> {"payee", blockchain_txn_subnetwork_rewards_v1:reward_account(R)} end,
+        blockchain_txn_subnetwork_rewards_v1:rewards(T)
+    ).
