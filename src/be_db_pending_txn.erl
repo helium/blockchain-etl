@@ -168,7 +168,7 @@ handle_info({submit_pending, Stmt}, State = #state{}) ->
         fun({TxnCreatedAt, TxnHash, PendingTxn}) ->
             blockchain_txn_mgr:submit(
                 PendingTxn,
-                TxnCreatedAt,
+                term_to_binary(TxnCreatedAt),
                 fun(Res) ->
                     Parent ! {pending_result, TxnCreatedAt, Res}
                 end
