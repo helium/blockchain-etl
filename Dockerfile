@@ -1,4 +1,4 @@
-FROM erlang:24.3.4-alpine as deps-compiler
+FROM erlang:24-alpine as deps-compiler
 
 RUN apk add --no-cache --update \
     git tar build-base linux-headers autoconf automake libtool pkgconfig \
@@ -31,7 +31,7 @@ RUN mkdir -p /opt/docker
 RUN tar -zxvf _build/docker_etl/rel/*/*.tar.gz -C /opt/docker
 RUN mkdir -p /opt/docker/update
 
-FROM alpine:3.15.4 as runner
+FROM alpine:3.16 as runner
 
 RUN apk add --no-cache --update ncurses dbus gmp libsodium gcc
 RUN ulimit -n 64000
