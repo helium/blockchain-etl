@@ -87,7 +87,7 @@ indicated you should _not_ do a `make reset`
 
 `docker build -t helium/etl .`
 
-### Running the Migrations
+### Resetting the Migrations
 
 Be sure to replace with your DATABASE_URL below.
 
