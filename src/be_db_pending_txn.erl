@@ -142,7 +142,9 @@ handle_info({submit_pending, Stmt}, State = #state{}) ->
     QUpdatePendingTxn = fun(TxnCreatedAt, _TxnHash, Txn, Acc) ->
         Fields =
             try
-                be_txn:to_json(Txn)
+                %% Do not use be_txn:to_json to avoid requiring ledger to get
+                %% more complete json output before it's time.
+                blockchain_txn:to_json(Txn, [])
             catch
                 _:_ -> null
             end,
