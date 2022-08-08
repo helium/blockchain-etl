@@ -112,5 +112,8 @@ to_json(<<"rewards_v2">>, T, Opts) ->
     End = blockchain_txn_rewards_v2:end_epoch(T),
     {ok, Metadata} = be_db_reward:calculate_rewards_metadata(Start, End, Chain),
     blockchain_txn:to_json(T, Opts ++ [{rewards_metadata, Metadata}]);
+to_json(<<"payment_v2">>, T, Opts) ->
+    {ledger, Ledger} = lists:keyfind(ledger, 1, Opts),
+    blockchain_txn:to_json(T, Opts ++ [{ledger, Ledger}]);
 to_json(_Type, T, Opts) ->
     blockchain_txn:to_json(T, Opts).
