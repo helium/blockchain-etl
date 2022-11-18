@@ -445,4 +445,6 @@ to_actors(blockchain_txn_subnetwork_rewards_v1, T) ->
     lists:map(
         fun(R) -> {"payee", blockchain_txn_subnetwork_rewards_v1:reward_account(R)} end,
         blockchain_txn_subnetwork_rewards_v1:rewards(T)
-    ).
+    );
+to_actors(blockchain_txn_subnetwork_fund_v1, T) ->
+    [{"payer", blockchain_txn_subnetwork_fund_v1:payer(T)}].
