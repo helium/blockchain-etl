@@ -303,7 +303,10 @@ to_actors(blockchain_txn_rewards_v2, T) ->
                         {ok, Validator} ->
                             Owner = blockchain_ledger_validator_v1:owner_address(Validator),
                             {[{"payee", Owner} | PayeeAcc], [{"validator", V} | GatewayAcc]}
-                    end
+                    end;
+                ({oracle, _Type, _V}, _Amt, {PayeeAcc, GatewayAcc}) ->
+                    %% nothing to do here
+                    {PayeeAcc, GatewayAcc}
             end,
             Acc,
             maps:iterator(Rewards)

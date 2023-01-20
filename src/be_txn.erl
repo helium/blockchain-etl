@@ -77,13 +77,20 @@ to_json(<<"poc_receipts_v2">>, T, Opts) ->
             witnesses => [UpdateWitness(W) || W <- Witnesses]
         }
     end,
-    {ok, ChallengerInfo} = blockchain_ledger_v1:get_validator(?B58_TO_BIN(Challenger), Ledger),
-    Json#{
-        challenger_owner => ?BIN_TO_B58(
-            blockchain_ledger_validator_v1:owner_address(ChallengerInfo)
-        ),
-        path => [UpdatePath(E) || E <- Path]
-    };
+    Json1 = Json#{
+              path => [UpdatePath(E) || E <- Path]
+             },
+    case blockchain_ledger_v1:get_validator(?B58_TO_BIN(Challenger), Ledger) of
+        {ok, ChallengerInfo} ->
+            Json1#{
+              challenger_owner => ?BIN_TO_B58(
+                                     blockchain_ledger_validator_v1:owner_address(ChallengerInfo)
+                                    )
+             };
+        _ ->
+            %% off-chain pocs don't have an on-chain challenger identity
+            Json1
+    end;
 to_json(<<"state_channel_close_v1">>, T, Opts) ->
     {ledger, Ledger} = lists:keyfind(ledger, 1, Opts),
     Json = #{state_channel := SCJson} = blockchain_txn:to_json(T, Opts),
