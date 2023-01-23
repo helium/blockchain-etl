@@ -211,7 +211,10 @@ collect_v2_rewards(Rewards, Ledger, RewardMap) ->
                             Amt,
                             Acc
                         )
-                end
+                end;
+            ({oracle, _Type, _V}, _Amt, Acc) ->
+                %% nothing to do here
+                Acc
         end,
         RewardMap,
         maps:iterator(Rewards)
