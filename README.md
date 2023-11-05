@@ -1,3 +1,7 @@
+# Arhived
+
+This repository is no longer applicable after the migration to Solana. 
+
 # blockchain-etl
 
 [![Build status](https://badge.buildkite.com/a1f6f5135577f0039b6bd6821d5c8f87466ff9c024dbf4a60b.svg)](https://buildkite.com/helium/blockchain-etl)
