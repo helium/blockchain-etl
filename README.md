@@ -1,4 +1,4 @@
-# Arhived
+# Archived
 
 This repository is no longer applicable after the migration to Solana. 
 
